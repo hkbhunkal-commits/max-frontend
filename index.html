@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>MAX AI Assistant</title>
+<title>MAX AI</title>
 
 <style>
 * {
@@ -30,7 +29,6 @@ body {
   border-radius: 24px;
   padding: 30px 20px;
   text-align: center;
-  box-shadow: 0 15px 50px rgba(0,0,0,0.35);
 }
 
 h1 {
@@ -53,32 +51,26 @@ h1 {
   align-items: center;
   justify-content: center;
   font-size: 55px;
-  transition: 0.25s;
+  transition: .25s;
 }
 
 #orb.listening {
-  transform: scale(1.08);
   background: #2563eb;
+  transform: scale(1.08);
 }
 
 #orb.thinking {
-  transform: scale(1.05);
   background: #7c3aed;
+  transform: scale(1.05);
 }
 
 #orb.speaking {
-  transform: scale(1.08);
   background: #16a34a;
-}
-
-#status {
-  min-height: 24px;
-  color: #cbd5e1;
-  margin: 15px 0;
+  transform: scale(1.08);
 }
 
 button {
-  border: none;
+  border: 0;
   border-radius: 14px;
   padding: 15px 25px;
   margin: 8px;
@@ -87,12 +79,14 @@ button {
   cursor: pointer;
 }
 
-#startBtn {
-  font-size: 19px;
-}
-
 #stopBtn {
   display: none;
+}
+
+#status {
+  min-height: 24px;
+  color: #cbd5e1;
+  margin: 15px 0;
 }
 
 #response {
@@ -103,13 +97,6 @@ button {
   text-align: left;
   line-height: 1.6;
   white-space: pre-wrap;
-  min-height: 50px;
-}
-
-.small {
-  margin-top: 18px;
-  color: #64748b;
-  font-size: 13px;
 }
 </style>
 </head>
@@ -118,31 +105,27 @@ button {
 
 <div class="box">
 
-  <h1>MAX 🤖</h1>
+<h1>MAX 🤖</h1>
 
-  <div class="subtitle">
-    Your AI Assistant
-  </div>
+<div class="subtitle">
+Your AI Assistant
+</div>
 
-  <div id="orb">🤖</div>
+<div id="orb">🤖</div>
 
-  <div id="status">
-    Press START MAX
-  </div>
+<div id="status">
+Press START MAX
+</div>
 
-  <button id="startBtn">
-    🎤 START MAX
-  </button>
+<button id="startBtn">
+🎤 START MAX
+</button>
 
-  <button id="stopBtn">
-    🛑 STOP
-  </button>
+<button id="stopBtn">
+🛑 STOP
+</button>
 
-  <div id="response"></div>
-
-  <div class="small">
-    Say "MAX" to wake your assistant
-  </div>
+<div id="response"></div>
 
 </div>
 
@@ -179,10 +162,12 @@ let speaking = false;
 
 let thinking = false;
 
+let waitingForCommand = false;
 
-// ==========================================
+
+// =====================================
 // SPEECH RECOGNITION
-// ==========================================
+// =====================================
 
 const SpeechRecognition =
 window.SpeechRecognition ||
@@ -192,7 +177,7 @@ window.webkitSpeechRecognition;
 if (!SpeechRecognition) {
 
   statusBox.textContent =
-  "Voice recognition is not supported. Please use Chrome.";
+  "Voice recognition is not supported. Use Chrome.";
 
 } else {
 
@@ -206,25 +191,29 @@ if (!SpeechRecognition) {
   recognition.lang = "en-IN";
 
 
-  // ========================================
-  // RECOGNITION START
-  // ========================================
-
   recognition.onstart = function() {
 
     listening = true;
 
     orb.classList.add("listening");
 
+    if (waitingForCommand) {
+
+      statusBox.textContent =
+      "I'm listening... 🎤";
+
+    } else {
+
+      statusBox.textContent =
+      'Say "MAX"... 🎤';
+
+    }
+
   };
 
 
-  // ========================================
-  // RECOGNITION RESULT
-  // ========================================
-
   recognition.onresult =
-  async function(event) {
+  function(event) {
 
     listening = false;
 
@@ -235,65 +224,57 @@ if (!SpeechRecognition) {
     event.results[0][0].transcript.trim();
 
 
-    console.log("MAX heard:", heard);
+    console.log(
+      "MAX heard:",
+      heard
+    );
 
 
-    // --------------------------------------
-    // WAKE WORD
-    // --------------------------------------
-
-    if (!waitingForCommand) {
-
-      const command =
-      removeWakeWord(heard);
-
-
-      // "MAX" alone
-      if (!command) {
-
-        speak(
-          "Haan boss."
-        );
-
-        waitingForCommand = true;
-
-        return;
-
-      }
-
-
-      // "MAX, how are you?"
-      if (command) {
-
-        waitingForCommand = false;
-
-        await sendMessage(command);
-
-        return;
-
-      }
-
-    }
-
-
-    // --------------------------------------
-    // COMMAND AFTER "HAAN BOSS"
-    // --------------------------------------
+    // =================================
+    // COMMAND MODE
+    // =================================
 
     if (waitingForCommand) {
 
       waitingForCommand = false;
 
-      await sendMessage(heard);
+      sendMessage(heard);
+
+      return;
 
     }
 
+
+    // =================================
+    // WAKE WORD MODE
+    // =================================
+
+    const command =
+    removeWakeWord(heard);
+
+
+    if (command === "") {
+
+      // User only said MAX
+
+      waitingForCommand = true;
+
+      speakWakeResponse();
+
+      return;
+
+    }
+
+
+    // User said:
+    // "MAX how are you?"
+
+    waitingForCommand = false;
+
+    sendMessage(command);
+
   };
 
-
-  // ========================================
-  // ERROR
-  // ========================================
 
   recognition.onerror =
   function(event) {
@@ -321,7 +302,11 @@ if (!SpeechRecognition) {
     }
 
 
-    if (maxActive && !speaking) {
+    if (
+      maxActive &&
+      !speaking &&
+      !thinking
+    ) {
 
       setTimeout(
         listen,
@@ -333,10 +318,6 @@ if (!SpeechRecognition) {
   };
 
 
-  // ========================================
-  // END
-  // ========================================
-
   recognition.onend =
   function() {
 
@@ -345,15 +326,25 @@ if (!SpeechRecognition) {
     orb.classList.remove("listening");
 
 
+    /*
+      IMPORTANT:
+
+      If waitingForCommand is TRUE,
+      we DON'T listen for MAX.
+
+      We listen directly for the command.
+    */
+
     if (
       maxActive &&
       !speaking &&
-      !thinking
+      !thinking &&
+      !listening
     ) {
 
       setTimeout(
         listen,
-        500
+        400
       );
 
     }
@@ -363,16 +354,9 @@ if (!SpeechRecognition) {
 }
 
 
-// ==========================================
-// STATE
-// ==========================================
-
-let waitingForCommand = false;
-
-
-// ==========================================
-// START MAX
-// ==========================================
+// =====================================
+// START
+// =====================================
 
 startBtn.onclick =
 function() {
@@ -418,9 +402,9 @@ function startMAX() {
 }
 
 
-// ==========================================
-// STOP MAX
-// ==========================================
+// =====================================
+// STOP
+// =====================================
 
 function stopMAX() {
 
@@ -436,13 +420,13 @@ function stopMAX() {
 
 
   try {
+
     recognition.stop();
+
   } catch(e) {}
 
 
-  if ("speechSynthesis" in window) {
-    speechSynthesis.cancel();
-  }
+  speechSynthesis.cancel();
 
 
   orb.className = "";
@@ -461,9 +445,9 @@ function stopMAX() {
 }
 
 
-// ==========================================
+// =====================================
 // LISTEN
-// ==========================================
+// =====================================
 
 function listen() {
 
@@ -473,7 +457,9 @@ function listen() {
     speaking ||
     thinking
   ) {
+
     return;
+
   }
 
 
@@ -484,7 +470,7 @@ function listen() {
   } catch(e) {
 
     console.log(
-      "Already listening"
+      "Recognition already active."
     );
 
   }
@@ -492,9 +478,9 @@ function listen() {
 }
 
 
-// ==========================================
-// REMOVE WAKE WORD
-// ==========================================
+// =====================================
+// WAKE WORD
+// =====================================
 
 function removeWakeWord(text) {
 
@@ -516,15 +502,112 @@ function removeWakeWord(text) {
 }
 
 
-// ==========================================
-// SEND MESSAGE TO BACKEND
-// ==========================================
+// =====================================
+// "HAAN BOSS"
+// =====================================
+
+function speakWakeResponse() {
+
+  speaking = true;
+
+  orb.className =
+  "speaking";
+
+
+  statusBox.textContent =
+  "MAX is listening...";
+
+
+  speechSynthesis.cancel();
+
+
+  const voice =
+  new SpeechSynthesisUtterance(
+    "Haan boss."
+  );
+
+
+  voice.lang =
+  "en-IN";
+
+  voice.rate =
+  0.95;
+
+  voice.pitch =
+  1;
+
+
+  voice.onend =
+  function() {
+
+    speaking = false;
+
+    orb.className =
+    "listening";
+
+
+    /*
+      THIS IS THE IMPORTANT FIX.
+
+      After "Haan boss",
+      immediately listen for the command.
+    */
+
+    if (maxActive) {
+
+      statusBox.textContent =
+      "I'm listening... 🎤";
+
+      setTimeout(
+        listen,
+        300
+      );
+
+    }
+
+  };
+
+
+  voice.onerror =
+  function() {
+
+    speaking = false;
+
+    orb.className =
+    "";
+
+
+    if (maxActive) {
+
+      setTimeout(
+        listen,
+        300
+      );
+
+    }
+
+  };
+
+
+  speechSynthesis.speak(
+    voice
+  );
+
+}
+
+
+// =====================================
+// SEND TO AI
+// =====================================
 
 async function sendMessage(message) {
 
   if (!message) {
 
     waitingForCommand = false;
+
+    statusBox.textContent =
+    'Say "MAX"...';
 
     listen();
 
@@ -602,7 +685,7 @@ async function sendMessage(message) {
     escapeHtml(reply);
 
 
-    speak(reply);
+    speakReply(reply);
 
 
   } catch(error) {
@@ -635,20 +718,15 @@ async function sendMessage(message) {
 }
 
 
-// ==========================================
-// SPEAK
-// ==========================================
+// =====================================
+// SPEAK AI REPLY
+// =====================================
 
-function speak(text) {
+function speakReply(text) {
 
-  if (
-    !text ||
-    !("speechSynthesis" in window)
-  ) {
+  if (!text) {
 
-    speaking = false;
-
-    orb.className = "";
+    thinking = false;
 
     listen();
 
@@ -664,52 +742,47 @@ function speak(text) {
   cleanForSpeech(text);
 
 
-  const utterance =
+  const voice =
   new SpeechSynthesisUtterance(
     clean
   );
 
 
-  // ========================================
-  // LANGUAGE
-  // ========================================
+  speaking = true;
+
+  thinking = false;
+
 
   if (
     /[\u0900-\u097F]/.test(text)
   ) {
 
-    utterance.lang =
+    voice.lang =
     "hi-IN";
 
   } else {
 
-    utterance.lang =
+    voice.lang =
     "en-IN";
 
   }
 
 
-  utterance.rate =
+  voice.rate =
   0.95;
 
-  utterance.pitch =
+  voice.pitch =
   1;
 
-  utterance.volume =
+  voice.volume =
   1;
 
 
-  utterance.onstart =
+  voice.onstart =
   function() {
-
-    speaking = true;
-
-    thinking = false;
-
 
     orb.className =
     "speaking";
-
 
     statusBox.textContent =
     "MAX is speaking... 🔊";
@@ -717,7 +790,7 @@ function speak(text) {
   };
 
 
-  utterance.onend =
+  voice.onend =
   function() {
 
     speaking = false;
@@ -729,10 +802,8 @@ function speak(text) {
 
       waitingForCommand = false;
 
-
       statusBox.textContent =
       'Say "MAX"... 🎤';
-
 
       setTimeout(
         listen,
@@ -744,7 +815,7 @@ function speak(text) {
   };
 
 
-  utterance.onerror =
+  voice.onerror =
   function() {
 
     speaking = false;
@@ -752,14 +823,9 @@ function speak(text) {
     orb.className = "";
 
 
-    speechSynthesis.cancel();
-
-
     if (maxActive) {
 
-      statusBox.textContent =
-      'Say "MAX"... 🎤';
-
+      waitingForCommand = false;
 
       setTimeout(
         listen,
@@ -772,15 +838,15 @@ function speak(text) {
 
 
   speechSynthesis.speak(
-    utterance
+    voice
   );
 
 }
 
 
-// ==========================================
-// CLEAN AI TEXT BEFORE SPEAKING
-// ==========================================
+// =====================================
+// CLEAN SPEECH
+// =====================================
 
 function cleanForSpeech(text) {
 
@@ -831,9 +897,9 @@ function cleanForSpeech(text) {
 }
 
 
-// ==========================================
-// ESCAPE HTML
-// ==========================================
+// =====================================
+// SECURITY
+// =====================================
 
 function escapeHtml(text) {
 
