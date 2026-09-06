@@ -1,729 +1,297 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MAX AI</title>
+const express = require("express");
+const cors = require("cors");
 
-<style>
-body {
-    margin: 0;
-    min-height: 100vh;
-    background: #0f172a;
-    color: white;
-    font-family: Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
+const app = express();
 
-.box {
-    width: 90%;
-    max-width: 600px;
-    background: #1e293b;
-    padding: 30px 20px;
-    border-radius: 25px;
-    text-align: center;
-}
+app.use(cors());
+app.use(express.json());
 
-h1 {
-    font-size: 35px;
-    margin: 0;
-}
+const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
+const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 
-#orb {
-    width: 140px;
-    height: 140px;
-    margin: 30px auto;
-    border-radius: 50%;
-    background: #334155;
+const MEMORY_API =
+  "https://max-memory-api.hkbhunkal.workers.dev";
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
 
-    font-size: 50px;
-}
+// =========================
+// HOME
+// =========================
 
-.listening {
-    background: #2563eb !important;
-}
+app.get("/", (req, res) => {
+  res.send("MAX backend is running.");
+});
 
-.thinking {
-    background: #7c3aed !important;
-}
 
-.speaking {
-    background: #16a34a !important;
-}
+// =========================
+// TEST
+// =========================
 
-button {
-    padding: 15px 25px;
-    margin: 8px;
+app.get("/test", (req, res) => {
+  res.json({
+    status: "OK",
+    message: "MAX backend connection is working!"
+  });
+});
 
-    border: none;
-    border-radius: 14px;
 
-    font-size: 17px;
-    font-weight: bold;
-}
+// =========================
+// GET MEMORIES
+// =========================
 
-#stop {
-    display: none;
-}
-
-#status {
-    color: #cbd5e1;
-    margin: 15px;
-}
-
-#response {
-    margin-top: 20px;
-    padding: 15px;
-
-    background: #0f172a;
-    border-radius: 15px;
-
-    text-align: left;
-    line-height: 1.6;
-}
-</style>
-</head>
-
-<body>
-
-<div class="box">
-
-<h1>MAX 🤖</h1>
-
-<div id="orb">🤖</div>
-
-<div id="status">
-    Press START MAX
-</div>
-
-<button id="start">
-    🎤 START MAX
-</button>
-
-<button id="stop">
-    🛑 STOP
-</button>
-
-<div id="response"></div>
-
-</div>
-
-
-<script>
-
-// ========================================
-// BACKEND
-// ========================================
-
-const BACKEND =
-"https://max-backend-u4r6.onrender.com/chat";
-
-
-// ========================================
-// ELEMENTS
-// ========================================
-
-const startButton =
-document.getElementById("start");
-
-const stopButton =
-document.getElementById("stop");
-
-const status =
-document.getElementById("status");
-
-const responseBox =
-document.getElementById("response");
-
-const orb =
-document.getElementById("orb");
-
-
-// ========================================
-// VARIABLES
-// ========================================
-
-let recognition;
-
-let active = false;
-
-let listening = false;
-
-let speaking = false;
-
-
-// ========================================
-// CHECK SPEECH API
-// ========================================
-
-const SpeechRecognition =
-window.SpeechRecognition ||
-window.webkitSpeechRecognition;
-
-
-if (!SpeechRecognition) {
-
-    status.textContent =
-    "❌ Voice recognition not supported. Open this in Chrome.";
-
-} else {
-
-    recognition =
-    new SpeechRecognition();
-
-    recognition.continuous = false;
-
-    recognition.interimResults = false;
-
-    recognition.lang = "en-IN";
-
-
-    // ====================================
-    // MICROPHONE STARTED
-    // ====================================
-
-    recognition.onstart = function() {
-
-        listening = true;
-
-        orb.className =
-        "listening";
-
-        status.textContent =
-        "🎤 Listening...";
-
-    };
-
-
-    // ====================================
-    // USER SPOKE
-    // ====================================
-
-    recognition.onresult =
-    function(event) {
-
-        listening = false;
-
-        orb.className = "";
-
-
-        const text =
-        event.results[0][0].transcript.trim();
-
-
-        console.log(
-            "User said:",
-            text
-        );
-
-
-        if (!text) {
-
-            startListening();
-
-            return;
-
-        }
-
-
-        // -------------------------------
-        // WAKE WORD
-        // -------------------------------
-
-        let command =
-        text.replace(
-            /^(hey|okay|ok)?\s*max[\s,.\-:]*/i,
-            ""
-        ).trim();
-
-
-        // User only said MAX
-
-        if (!command) {
-
-            speak(
-                "Haan boss.",
-                function() {
-
-                    if (active) {
-
-                        startListening();
-
-                    }
-
-                }
-            );
-
-            return;
-
-        }
-
-
-        // User said:
-        // MAX how are you?
-
-        sendToMAX(command);
-
-    };
-
-
-    // ====================================
-    // ERROR
-    // ====================================
-
-    recognition.onerror =
-    function(event) {
-
-        listening = false;
-
-        orb.className = "";
-
-
-        console.log(
-            "Speech error:",
-            event.error
-        );
-
-
-        if (
-            event.error === "not-allowed"
-        ) {
-
-            status.textContent =
-            "❌ Microphone permission denied.";
-
-            return;
-
-        }
-
-
-        if (active) {
-
-            setTimeout(
-                startListening,
-                500
-            );
-
-        }
-
-    };
-
-
-    // ====================================
-    // END
-    // ====================================
-
-    recognition.onend =
-    function() {
-
-        listening = false;
-
-
-        if (
-            active &&
-            !speaking
-        ) {
-
-            setTimeout(
-                startListening,
-                500
-            );
-
-        }
-
-    };
-
-}
-
-
-// ========================================
-// START MAX
-// ========================================
-
-startButton.onclick =
-function() {
-
-    active = true;
-
-
-    startButton.style.display =
-    "none";
-
-    stopButton.style.display =
-    "inline-block";
-
-
-    status.textContent =
-    'Say "MAX"... 🎤';
-
-
-    startListening();
-
-};
-
-
-// ========================================
-// STOP MAX
-// ========================================
-
-stopButton.onclick =
-function() {
-
-    active = false;
-
-    listening = false;
-
-    speaking = false;
-
-
-    speechSynthesis.cancel();
-
-
-    try {
-
-        recognition.stop();
-
-    } catch(e) {}
-
-
-    orb.className = "";
-
-
-    startButton.style.display =
-    "inline-block";
-
-    stopButton.style.display =
-    "none";
-
-
-    status.textContent =
-    "MAX stopped.";
-
-};
-
-
-// ========================================
-// START LISTENING
-// ========================================
-
-function startListening() {
-
-    if (
-        !active ||
-        listening ||
-        speaking
-    ) {
-
-        return;
-
-    }
-
-
-    try {
-
-        recognition.start();
-
-    } catch(e) {
-
-        console.log(
-            "Start error:",
-            e
-        );
-
-    }
-
-}
-
-
-// ========================================
-// SEND TO BACKEND
-// ========================================
-
-async function sendToMAX(message) {
-
-    status.textContent =
-    "🧠 Thinking...";
-
-    orb.className =
-    "thinking";
-
-
-    try {
-
-        const response =
-        await fetch(
-
-            BACKEND,
-
-            {
-
-                method: "POST",
-
-                headers: {
-
-                    "Content-Type":
-                    "application/json"
-
-                },
-
-                body: JSON.stringify({
-
-                    message: message
-
-                })
-
-            }
-
-        );
-
-
-        const data =
-        await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.error ||
-                "MAX error"
-            );
-
-        }
-
-
-        const reply =
-        data.reply || "";
-
-
-        responseBox.innerHTML =
-        "<b>You:</b> " +
-        escapeHTML(message) +
-
-        "<br><br>" +
-
-        "<b>MAX:</b> " +
-        escapeHTML(reply);
-
-
-        speak(
-            reply,
-            function() {
-
-                if (active) {
-
-                    status.textContent =
-                    'Say "MAX"... 🎤';
-
-                    startListening();
-
-                }
-
-            }
-        );
-
-
-    } catch(error) {
-
-        orb.className = "";
-
-
-        status.textContent =
-        "❌ " +
-        error.message;
-
-
-        if (active) {
-
-            setTimeout(
-                startListening,
-                1000
-            );
-
-        }
-
-    }
-
-}
-
-
-// ========================================
-// SPEAK
-// ========================================
-
-function speak(text, finished) {
-
-    speechSynthesis.cancel();
-
-
-    const clean =
-    cleanText(text);
-
-
-    if (!clean) {
-
-        finished();
-
-        return;
-
-    }
-
-
-    const utterance =
-    new SpeechSynthesisUtterance(
-        clean
+async function getMemories() {
+  try {
+    const response = await fetch(
+      `${MEMORY_API}/memories?user_id=default`
     );
 
+    const data = await response.json();
 
-    speaking = true;
-
-    orb.className =
-    "speaking";
-
-
-    if (
-        /[\u0900-\u097F]/.test(text)
-    ) {
-
-        utterance.lang =
-        "hi-IN";
-
-    } else {
-
-        utterance.lang =
-        "en-IN";
-
+    if (!response.ok || !data.success) {
+      return [];
     }
 
+    return data.memories || [];
 
-    utterance.rate =
-    1;
-
-
-    utterance.pitch =
-    1;
-
-
-    utterance.onstart =
-    function() {
-
-        status.textContent =
-        "🔊 MAX is speaking...";
-
-    };
-
-
-    utterance.onend =
-    function() {
-
-        speaking = false;
-
-        orb.className = "";
-
-
-        if (finished) {
-
-            finished();
-
-        }
-
-    };
-
-
-    utterance.onerror =
-    function() {
-
-        speaking = false;
-
-        orb.className = "";
-
-
-        if (finished) {
-
-            finished();
-
-        }
-
-    };
-
-
-    speechSynthesis.speak(
-        utterance
-    );
-
+  } catch (error) {
+    console.error("Memory read error:", error);
+    return [];
+  }
 }
 
 
-// ========================================
-// CLEAN SPEECH
-// ========================================
+// =========================
+// SAVE MEMORY
+// =========================
 
-function cleanText(text) {
+async function saveMemory(memory) {
+  try {
+    const response = await fetch(
+      `${MEMORY_API}/remember`,
+      {
+        method: "POST",
 
-    return text
+        headers: {
+          "Content-Type": "application/json"
+        },
 
-        .replace(
-            /```[\s\S]*?```/g,
-            ""
-        )
+        body: JSON.stringify({
+          user_id: "default",
+          memory: memory
+        })
+      }
+    );
 
-        .replace(
-            /\*\*/g,
-            ""
-        )
+    const data = await response.json();
 
-        .replace(
-            /\*/g,
-            ""
-        )
+    return response.ok && data.success;
 
-        .replace(
-            /`/g,
-            ""
-        )
+  } catch (error) {
+    console.error("Memory save error:", error);
+    return false;
+  }
+}
 
-        .replace(
-            /[#_>-]/g,
-            " "
-        )
 
-        .replace(
-            /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,
-            ""
-        )
+// =========================
+// CHAT
+// =========================
 
-        .replace(
-            /\s+/g,
-            " "
-        )
+app.post("/chat", async (req, res) => {
 
+  try {
+
+    const message = req.body.message;
+
+    if (!message) {
+      return res.status(400).json({
+        error: "Message is required."
+      });
+    }
+
+
+    if (!ACCOUNT_ID || !API_TOKEN) {
+      return res.status(500).json({
+        error: "Cloudflare credentials are missing."
+      });
+    }
+
+
+    // =========================
+    // REMEMBER COMMAND
+    // =========================
+
+    const lowerMessage = message.toLowerCase();
+
+    if (
+      lowerMessage.startsWith("remember ") ||
+      lowerMessage.startsWith("remember that ")
+    ) {
+
+      let memory = message
+        .replace(/^remember that /i, "")
+        .replace(/^remember /i, "")
         .trim();
 
-}
+      if (memory) {
+
+        const saved = await saveMemory(memory);
+
+        if (saved) {
+
+          return res.json({
+            reply: "Okay bro, I'll remember that."
+          });
+
+        }
+      }
+    }
 
 
-// ========================================
-// SECURITY
-// ========================================
+    // =========================
+    // LOAD MEMORIES
+    // =========================
 
-function escapeHTML(text) {
+    const memories = await getMemories();
 
-    const div =
-    document.createElement("div");
+    let memoryText = "No saved memories.";
 
-    div.textContent =
-    text;
+    if (memories.length > 0) {
 
-    return div.innerHTML;
+      memoryText = memories
+        .map((item) => `- ${item.memory}`)
+        .join("\n");
 
-}
+    }
 
-</script>
 
-</body>
-</html>
+    // =========================
+    // MAX AI PROMPT
+    // =========================
+
+    const prompt =
+`You are MAX, a natural conversational AI phone assistant.
+
+IMPORTANT LANGUAGE RULES:
+
+Always reply in the SAME language and style used by the user.
+
+If the user speaks Hinglish, reply naturally in Hinglish.
+Do NOT translate Hinglish into pure Hindi or pure English.
+
+If the user speaks Hindi, reply in Hindi.
+
+If the user speaks English, reply in English.
+
+If the user mixes Hindi and English, keep the same natural Hindi-English mix.
+
+Never provide a translation unless the user specifically asks for one.
+
+Never say things like:
+"Here is the Hindi translation."
+"Here is the English translation."
+"Translation:"
+or anything similar.
+
+Understand informal spelling, slang and casual speech naturally.
+
+For voice conversations, answer naturally like a phone assistant.
+
+Keep normal replies SHORT.
+Usually answer in 1 or 2 sentences.
+
+Do not give long explanations unless the user specifically asks for a detailed explanation.
+
+Do not use markdown, headings, bullet points, unnecessary formatting or emojis in normal conversation.
+
+These are MAX's saved memories about the user:
+
+${memoryText}
+
+Use memories only when relevant.
+Do not mention the memory system unless the user asks.
+
+User:
+${message}`;
+
+
+    // =========================
+    // CLOUDFLARE AI
+    // =========================
+
+    const response = await fetch(
+
+      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+
+      {
+        method: "POST",
+
+        headers: {
+          "Authorization": `Bearer ${API_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          prompt: prompt
+        })
+      }
+
+    );
+
+
+    const data = await response.json();
+
+
+    if (!response.ok || !data.success) {
+
+      console.error(
+        "Cloudflare AI Error:",
+        data
+      );
+
+      return res.status(500).json({
+        error:
+          "MAX could not get a response from Cloudflare AI."
+      });
+
+    }
+
+
+    // =========================
+    // SEND REPLY
+    // =========================
+
+    res.json({
+      reply: data.result.response
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "Server Error:",
+      error
+    );
+
+    res.status(500).json({
+      error: "MAX server error."
+    });
+
+  }
+
+});
+
+
+// =========================
+// START SERVER
+// =========================
+
+const PORT =
+  process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+
+  console.log(
+    `MAX backend running on port ${PORT}`
+  );
+
+});
