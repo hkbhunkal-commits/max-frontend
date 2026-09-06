@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -59,10 +59,6 @@
       width: 52px;
       padding: 12px 0;
       font-size: 20px;
-    }
-
-    #sendBtn {
-      margin-top: 15px;
     }
 
     #speakBtn {
@@ -143,19 +139,14 @@
 
       recognition.continuous = false;
       recognition.interimResults = false;
-
       recognition.lang = "en-IN";
-
 
       recognition.onstart = function () {
 
         micBtn.textContent = "🔴";
-
-        statusBox.textContent =
-          "Listening... 🎤";
+        statusBox.textContent = "Listening... 🎤";
 
       };
-
 
       recognition.onresult = function (event) {
 
@@ -169,13 +160,9 @@
 
       };
 
-
       recognition.onerror = function (event) {
 
-        console.error(
-          "Speech error:",
-          event.error
-        );
+        console.error("Speech error:", event.error);
 
         statusBox.textContent =
           "Mic error: " + event.error;
@@ -183,7 +170,6 @@
         micBtn.textContent = "🎤";
 
       };
-
 
       recognition.onend = function () {
 
@@ -208,20 +194,16 @@
       }
 
       try {
-
         recognition.start();
-
       } catch (error) {
-
         console.log(error);
-
       }
 
     }
 
 
     // =========================
-    // SEND MESSAGE TO MAX
+    // SEND MESSAGE
     // =========================
 
     async function sendMessage() {
@@ -255,28 +237,18 @@
       try {
 
         const res = await fetch(
-
           "https://max-backend-u4r6.onrender.com/chat",
-
           {
-
             method: "POST",
 
             headers: {
-
-              "Content-Type":
-                "application/json"
-
+              "Content-Type": "application/json"
             },
 
             body: JSON.stringify({
-
               message: msg
-
             })
-
           }
-
         );
 
 
@@ -287,8 +259,7 @@
         if (!res.ok) {
 
           throw new Error(
-            data.error ||
-            "Server error"
+            data.error || "Server error"
           );
 
         }
@@ -298,13 +269,14 @@
           data.reply || "";
 
 
+        // Display full reply on screen
         responseBox.innerHTML =
           "<b>MAX:</b> " +
           escapeHtml(lastReply);
 
 
-        // Automatically speak MAX's reply
-        speakText(lastReply);
+        // Speak ONLY clean reply
+        speakText(cleanForSpeech(lastReply));
 
 
       } catch (error) {
@@ -317,6 +289,38 @@
 
 
       button.disabled = false;
+
+    }
+
+
+    // =========================
+    // CLEAN TEXT FOR VOICE
+    // =========================
+
+    function cleanForSpeech(text) {
+
+      return text
+
+        // Remove markdown bold/italic
+        .replace(/\*\*/g, "")
+        .replace(/\*/g, "")
+        .replace(/__/g, "")
+        .replace(/_/g, "")
+
+        // Remove code formatting
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/`/g, "")
+
+        // Remove common emojis/symbols
+        .replace(
+          /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,
+          ""
+        )
+
+        // Remove excessive spaces
+        .replace(/\s+/g, " ")
+
+        .trim();
 
     }
 
@@ -337,6 +341,11 @@
       }
 
 
+      if (!text) {
+        return;
+      }
+
+
       window.speechSynthesis.cancel();
 
 
@@ -344,8 +353,7 @@
         new SpeechSynthesisUtterance(text);
 
 
-      // Try to choose Hindi voice
-      // when MAX replies in Hindi.
+      // Hindi voice for Hindi replies
       if (/[\u0900-\u097F]/.test(text)) {
 
         speech.lang = "hi-IN";
@@ -390,6 +398,10 @@
     }
 
 
+    // =========================
+    // MANUAL SPEAK BUTTON
+    // =========================
+
     function speakLastReply() {
 
       if (!lastReply) {
@@ -402,7 +414,7 @@
       }
 
 
-      speakText(lastReply);
+      speakText(cleanForSpeech(lastReply));
 
     }
 
@@ -428,22 +440,18 @@
     // =========================
 
     input.addEventListener(
-
       "keydown",
-
       function (event) {
 
         if (event.key === "Enter") {
-
           sendMessage();
-
         }
 
       }
-
     );
 
   </script>
 
 </body>
-</html>
+</html> 
+          
