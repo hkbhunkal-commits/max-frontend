@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -65,6 +65,10 @@
       margin-top: 15px;
     }
 
+    #speakBtn {
+      margin-left: 8px;
+    }
+
     button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
@@ -88,9 +92,11 @@
 <body>
 
   <div class="box">
+
     <h1>MAX AI 🤖</h1>
 
     <div class="input-row">
+
       <input
         id="msg"
         type="text"
@@ -98,21 +104,33 @@
       >
 
       <button id="micBtn" onclick="startVoiceInput()">🎤</button>
+
     </div>
 
     <button id="sendBtn" onclick="sendMessage()">Send</button>
 
+    <button id="speakBtn" onclick="speakLastReply()">🔊 Speak</button>
+
     <div id="status"></div>
 
     <div id="response"></div>
+
   </div>
 
+
   <script>
+
     const input = document.getElementById("msg");
     const micBtn = document.getElementById("micBtn");
     const statusBox = document.getElementById("status");
 
-    // Browser Speech Recognition
+    let lastReply = "";
+
+
+    // =========================
+    // VOICE INPUT
+    // =========================
+
     const SpeechRecognition =
       window.SpeechRecognition ||
       window.webkitSpeechRecognition;
@@ -120,20 +138,27 @@
     let recognition = null;
 
     if (SpeechRecognition) {
+
       recognition = new SpeechRecognition();
 
       recognition.continuous = false;
       recognition.interimResults = false;
 
-      // Automatically detect common Indian speech
       recognition.lang = "en-IN";
 
+
       recognition.onstart = function () {
+
         micBtn.textContent = "🔴";
-        statusBox.textContent = "Listening... 🎤";
+
+        statusBox.textContent =
+          "Listening... 🎤";
+
       };
 
+
       recognition.onresult = function (event) {
+
         const transcript =
           event.results[0][0].transcript;
 
@@ -141,89 +166,146 @@
 
         statusBox.textContent =
           "Voice captured ✅";
+
       };
 
+
       recognition.onerror = function (event) {
-        console.error("Speech error:", event.error);
+
+        console.error(
+          "Speech error:",
+          event.error
+        );
 
         statusBox.textContent =
           "Mic error: " + event.error;
 
         micBtn.textContent = "🎤";
+
       };
 
+
       recognition.onend = function () {
+
         micBtn.textContent = "🎤";
+
       };
 
     } else {
+
       micBtn.disabled = true;
 
       statusBox.textContent =
         "Voice input is not supported in this browser.";
+
     }
 
 
     function startVoiceInput() {
+
       if (!recognition) {
         return;
       }
 
       try {
+
         recognition.start();
+
       } catch (error) {
+
         console.log(error);
+
       }
+
     }
 
 
+    // =========================
+    // SEND MESSAGE TO MAX
+    // =========================
+
     async function sendMessage() {
+
       const button =
         document.getElementById("sendBtn");
 
       const responseBox =
         document.getElementById("response");
 
-      const msg = input.value.trim();
+      const msg =
+        input.value.trim();
+
 
       if (!msg) {
+
         responseBox.innerHTML =
           "<b>Please type or speak a message.</b>";
+
         return;
+
       }
+
 
       button.disabled = true;
 
       responseBox.innerHTML =
         "MAX is thinking... 🤔";
 
+
       try {
+
         const res = await fetch(
+
           "https://max-backend-u4r6.onrender.com/chat",
+
           {
+
             method: "POST",
 
             headers: {
-              "Content-Type": "application/json"
+
+              "Content-Type":
+                "application/json"
+
             },
 
             body: JSON.stringify({
+
               message: msg
+
             })
+
           }
+
         );
 
-        const data = await res.json();
+
+        const data =
+          await res.json();
+
 
         if (!res.ok) {
+
           throw new Error(
-            data.error || "Server error"
+            data.error ||
+            "Server error"
           );
+
         }
+
+
+        lastReply =
+          data.reply || "";
+
 
         responseBox.innerHTML =
           "<b>MAX:</b> " +
-          escapeHtml(data.reply);
+          escapeHtml(lastReply);
+
+
+        // Automatically speak MAX's reply
+        speakText(lastReply);
+
 
       } catch (error) {
 
@@ -233,31 +315,134 @@
 
       }
 
+
       button.disabled = false;
+
     }
 
 
+    // =========================
+    // VOICE OUTPUT
+    // =========================
+
+    function speakText(text) {
+
+      if (!("speechSynthesis" in window)) {
+
+        statusBox.textContent =
+          "Voice output is not supported.";
+
+        return;
+
+      }
+
+
+      window.speechSynthesis.cancel();
+
+
+      const speech =
+        new SpeechSynthesisUtterance(text);
+
+
+      // Try to choose Hindi voice
+      // when MAX replies in Hindi.
+      if (/[\u0900-\u097F]/.test(text)) {
+
+        speech.lang = "hi-IN";
+
+      } else {
+
+        speech.lang = "en-IN";
+
+      }
+
+
+      speech.rate = 1;
+      speech.pitch = 1;
+
+
+      speech.onstart = function () {
+
+        statusBox.textContent =
+          "MAX is speaking... 🔊";
+
+      };
+
+
+      speech.onend = function () {
+
+        statusBox.textContent =
+          "Done ✅";
+
+      };
+
+
+      speech.onerror = function () {
+
+        statusBox.textContent =
+          "Voice output error.";
+
+      };
+
+
+      window.speechSynthesis.speak(speech);
+
+    }
+
+
+    function speakLastReply() {
+
+      if (!lastReply) {
+
+        statusBox.textContent =
+          "MAX has no reply to speak yet.";
+
+        return;
+
+      }
+
+
+      speakText(lastReply);
+
+    }
+
+
+    // =========================
+    // SECURITY
+    // =========================
+
     function escapeHtml(text) {
+
       const div =
         document.createElement("div");
 
       div.textContent = text;
 
       return div.innerHTML;
+
     }
 
 
-    // Press Enter to send
+    // =========================
+    // ENTER TO SEND
+    // =========================
+
     input.addEventListener(
+
       "keydown",
+
       function (event) {
 
         if (event.key === "Enter") {
+
           sendMessage();
+
         }
 
       }
+
     );
+
   </script>
 
 </body>
