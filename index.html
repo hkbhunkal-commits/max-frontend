@@ -3,214 +3,164 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>MAX AI Assistant</title>
+<title>MAX AI</title>
 
 <style>
-* {
-    box-sizing: border-box;
-}
-
 body {
     margin: 0;
     min-height: 100vh;
     background: #0f172a;
     color: white;
     font-family: Arial, sans-serif;
-
     display: flex;
     justify-content: center;
     align-items: center;
-
-    padding: 20px;
 }
 
 .box {
-    width: 100%;
-    max-width: 650px;
-
+    width: 90%;
+    max-width: 600px;
     background: #1e293b;
-    border-radius: 24px;
-
     padding: 30px 20px;
+    border-radius: 25px;
     text-align: center;
 }
 
 h1 {
+    font-size: 35px;
     margin: 0;
-    font-size: 34px;
-}
-
-.subtitle {
-    color: #94a3b8;
-    margin-top: 8px;
 }
 
 #orb {
-    width: 150px;
-    height: 150px;
-
-    margin: 30px auto 20px;
-
+    width: 140px;
+    height: 140px;
+    margin: 30px auto;
     border-radius: 50%;
     background: #334155;
 
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
 
-    font-size: 55px;
-
-    transition: 0.2s;
+    font-size: 50px;
 }
 
-#orb.listening {
-    background: #2563eb;
-    transform: scale(1.08);
+.listening {
+    background: #2563eb !important;
 }
 
-#orb.thinking {
-    background: #7c3aed;
-    transform: scale(1.05);
+.thinking {
+    background: #7c3aed !important;
 }
 
-#orb.speaking {
-    background: #16a34a;
-    transform: scale(1.08);
+.speaking {
+    background: #16a34a !important;
 }
 
 button {
-    border: none;
-    border-radius: 14px;
-
     padding: 15px 25px;
     margin: 8px;
 
+    border: none;
+    border-radius: 14px;
+
     font-size: 17px;
     font-weight: bold;
-
-    cursor: pointer;
 }
 
-#stopBtn {
+#stop {
     display: none;
 }
 
 #status {
-    min-height: 24px;
     color: #cbd5e1;
-    margin: 15px 0;
+    margin: 15px;
 }
 
 #response {
-    margin-top: 25px;
-
-    padding: 18px;
-
-    border-radius: 15px;
+    margin-top: 20px;
+    padding: 15px;
 
     background: #0f172a;
+    border-radius: 15px;
 
     text-align: left;
-
     line-height: 1.6;
-
-    white-space: pre-wrap;
-
-    max-height: 300px;
-    overflow-y: auto;
 }
 </style>
 </head>
-
 
 <body>
 
 <div class="box">
 
-    <h1>MAX 🤖</h1>
+<h1>MAX 🤖</h1>
 
-    <div class="subtitle">
-        Your AI Assistant
-    </div>
+<div id="orb">🤖</div>
 
-    <div id="orb">
-        🤖
-    </div>
+<div id="status">
+    Press START MAX
+</div>
 
-    <div id="status">
-        Press START MAX
-    </div>
+<button id="start">
+    🎤 START MAX
+</button>
 
-    <button id="startBtn">
-        🎤 START MAX
-    </button>
+<button id="stop">
+    🛑 STOP
+</button>
 
-    <button id="stopBtn">
-        🛑 STOP
-    </button>
-
-    <div id="response"></div>
+<div id="response"></div>
 
 </div>
 
 
 <script>
 
-// ==================================================
+// ========================================
 // BACKEND
-// ==================================================
+// ========================================
 
 const BACKEND =
 "https://max-backend-u4r6.onrender.com/chat";
 
 
-// ==================================================
+// ========================================
 // ELEMENTS
-// ==================================================
+// ========================================
 
-const orb =
-document.getElementById("orb");
+const startButton =
+document.getElementById("start");
 
-const statusBox =
+const stopButton =
+document.getElementById("stop");
+
+const status =
 document.getElementById("status");
 
 const responseBox =
 document.getElementById("response");
 
-const startBtn =
-document.getElementById("startBtn");
-
-const stopBtn =
-document.getElementById("stopBtn");
+const orb =
+document.getElementById("orb");
 
 
-// ==================================================
-// STATE
-// ==================================================
+// ========================================
+// VARIABLES
+// ========================================
 
-let recognition = null;
+let recognition;
 
-let maxActive = false;
+let active = false;
 
-let recognitionRunning = false;
-
-let thinking = false;
+let listening = false;
 
 let speaking = false;
 
-let restarting = false;
 
-let requestInProgress = false;
-
-let lastHeard = "";
-
-let lastHeardTime = 0;
-
-
-// ==================================================
-// SPEECH RECOGNITION
-// ==================================================
+// ========================================
+// CHECK SPEECH API
+// ========================================
 
 const SpeechRecognition =
 window.SpeechRecognition ||
@@ -219,393 +169,217 @@ window.webkitSpeechRecognition;
 
 if (!SpeechRecognition) {
 
-    statusBox.textContent =
-    "Voice recognition needs Chrome.";
+    status.textContent =
+    "❌ Voice recognition not supported. Open this in Chrome.";
 
 } else {
 
     recognition =
     new SpeechRecognition();
 
-    recognition.continuous = true;
+    recognition.continuous = false;
 
     recognition.interimResults = false;
 
     recognition.lang = "en-IN";
 
 
-    // ==============================================
-    // MIC START
-    // ==============================================
+    // ====================================
+    // MICROPHONE STARTED
+    // ====================================
 
     recognition.onstart = function() {
 
-        recognitionRunning = true;
+        listening = true;
 
-        restarting = false;
+        orb.className =
+        "listening";
 
-        orb.className = "listening";
-
-        statusBox.textContent =
-        "I'm listening... 🎤";
+        status.textContent =
+        "🎤 Listening...";
 
     };
 
 
-    // ==============================================
-    // SPEECH RESULT
-    // ==============================================
+    // ====================================
+    // USER SPOKE
+    // ====================================
 
     recognition.onresult =
-    async function(event) {
+    function(event) {
 
-        if (!maxActive) {
+        listening = false;
+
+        orb.className = "";
+
+
+        const text =
+        event.results[0][0].transcript.trim();
+
+
+        console.log(
+            "User said:",
+            text
+        );
+
+
+        if (!text) {
+
+            startListening();
+
             return;
+
         }
 
 
-        /*
-        Get only the newest final result.
-        */
+        // -------------------------------
+        // WAKE WORD
+        // -------------------------------
 
-        for (
-            let i = event.resultIndex;
-            i < event.results.length;
-            i++
-        ) {
-
-            if (
-                !event.results[i].isFinal
-            ) {
-                continue;
-            }
+        let command =
+        text.replace(
+            /^(hey|okay|ok)?\s*max[\s,.\-:]*/i,
+            ""
+        ).trim();
 
 
-            let text =
-            event.results[i][0].transcript
-            .trim();
+        // User only said MAX
 
+        if (!command) {
 
-            if (!text) {
-                continue;
-            }
+            speak(
+                "Haan boss.",
+                function() {
 
+                    if (active) {
 
-            console.log(
-                "MAX heard:",
-                text
+                        startListening();
+
+                    }
+
+                }
             );
 
-
-            // ======================================
-            // DUPLICATE PROTECTION
-            // ======================================
-
-            const now =
-            Date.now();
-
-
-            if (
-                text.toLowerCase() ===
-                lastHeard.toLowerCase() &&
-                now - lastHeardTime < 2500
-            ) {
-
-                continue;
-
-            }
-
-
-            lastHeard = text;
-
-            lastHeardTime = now;
-
-
-            // ======================================
-            // BARGE-IN
-            // ======================================
-
-            if (speaking) {
-
-                /*
-                User started talking while MAX
-                was speaking.
-
-                Stop MAX immediately.
-                */
-
-                speechSynthesis.cancel();
-
-                speaking = false;
-
-                orb.className =
-                "thinking";
-
-                statusBox.textContent =
-                "Got it... 🎤";
-
-            }
-
-
-            // ======================================
-            // IGNORE IF AI IS ALREADY PROCESSING
-            // ======================================
-
-            if (requestInProgress) {
-
-                continue;
-
-            }
-
-
-            // ======================================
-            // SEND USER MESSAGE
-            // ======================================
-
-            await sendMessage(text);
+            return;
 
         }
+
+
+        // User said:
+        // MAX how are you?
+
+        sendToMAX(command);
 
     };
 
 
-    // ==============================================
+    // ====================================
     // ERROR
-    // ==============================================
+    // ====================================
 
     recognition.onerror =
     function(event) {
 
-        recognitionRunning = false;
+        listening = false;
+
+        orb.className = "";
 
 
         console.log(
-            "Recognition error:",
+            "Speech error:",
             event.error
         );
 
 
-        if (!maxActive) {
-            return;
-        }
-
-
         if (
-            event.error ===
-            "not-allowed" ||
-            event.error ===
-            "service-not-allowed"
+            event.error === "not-allowed"
         ) {
 
-            statusBox.textContent =
-            "Microphone permission denied.";
-
-            maxActive = false;
-
-            startBtn.style.display =
-            "inline-block";
-
-            stopBtn.style.display =
-            "none";
+            status.textContent =
+            "❌ Microphone permission denied.";
 
             return;
-        }
-
-
-        restartRecognition();
-
-    };
-
-
-    // ==============================================
-    // RECOGNITION END
-    // ==============================================
-
-    recognition.onend =
-    function() {
-
-        recognitionRunning = false;
-
-
-        if (!maxActive) {
-            return;
-        }
-
-
-        /*
-        Chrome sometimes stops continuous recognition.
-        Automatically start it again.
-        */
-
-        restartRecognition();
-
-    };
-
-}
-
-
-// ==================================================
-// START MAX
-// ==================================================
-
-startBtn.onclick =
-function() {
-
-    startMAX();
-
-};
-
-
-// ==================================================
-// STOP MAX
-// ==================================================
-
-stopBtn.onclick =
-function() {
-
-    stopMAX();
-
-};
-
-
-// ==================================================
-// START
-// ==================================================
-
-function startMAX() {
-
-    if (!recognition) {
-        return;
-    }
-
-
-    maxActive = true;
-
-    thinking = false;
-
-    speaking = false;
-
-    requestInProgress = false;
-
-    lastHeard = "";
-
-    lastHeardTime = 0;
-
-
-    speechSynthesis.cancel();
-
-
-    startBtn.style.display =
-    "none";
-
-    stopBtn.style.display =
-    "inline-block";
-
-
-    statusBox.textContent =
-    "Starting MAX... 🎤";
-
-
-    responseBox.innerHTML = "";
-
-
-    startRecognition();
-
-}
-
-
-// ==================================================
-// START RECOGNITION
-// ==================================================
-
-function startRecognition() {
-
-    if (
-        !maxActive ||
-        recognitionRunning ||
-        restarting
-    ) {
-
-        return;
-
-    }
-
-
-    restarting = true;
-
-
-    setTimeout(function() {
-
-        restarting = false;
-
-
-        if (
-            !maxActive ||
-            recognitionRunning
-        ) {
-
-            return;
 
         }
 
 
-        try {
+        if (active) {
 
-            recognition.start();
-
-        }
-
-        catch(error) {
-
-            console.log(
-                "Recognition start:",
-                error
+            setTimeout(
+                startListening,
+                500
             );
 
         }
 
-    }, 400);
+    };
+
+
+    // ====================================
+    // END
+    // ====================================
+
+    recognition.onend =
+    function() {
+
+        listening = false;
+
+
+        if (
+            active &&
+            !speaking
+        ) {
+
+            setTimeout(
+                startListening,
+                500
+            );
+
+        }
+
+    };
 
 }
 
 
-// ==================================================
-// RESTART RECOGNITION
-// ==================================================
+// ========================================
+// START MAX
+// ========================================
 
-function restartRecognition() {
+startButton.onclick =
+function() {
 
-    if (
-        !maxActive ||
-        recognitionRunning ||
-        restarting
-    ) {
-
-        return;
-
-    }
+    active = true;
 
 
-    startRecognition();
+    startButton.style.display =
+    "none";
 
-}
+    stopButton.style.display =
+    "inline-block";
 
 
-// ==================================================
+    status.textContent =
+    'Say "MAX"... 🎤';
+
+
+    startListening();
+
+};
+
+
+// ========================================
 // STOP MAX
-// ==================================================
+// ========================================
 
-function stopMAX() {
+stopButton.onclick =
+function() {
 
-    maxActive = false;
+    active = false;
 
-    thinking = false;
+    listening = false;
 
     speaking = false;
-
-    requestInProgress = false;
-
-    restarting = false;
 
 
     speechSynthesis.cancel();
@@ -615,80 +389,69 @@ function stopMAX() {
 
         recognition.stop();
 
-    }
-
-    catch(error) {}
-
-
-    recognitionRunning = false;
+    } catch(e) {}
 
 
     orb.className = "";
 
 
-    startBtn.style.display =
+    startButton.style.display =
     "inline-block";
 
-    stopBtn.style.display =
+    stopButton.style.display =
     "none";
 
 
-    statusBox.textContent =
+    status.textContent =
     "MAX stopped.";
+
+};
+
+
+// ========================================
+// START LISTENING
+// ========================================
+
+function startListening() {
+
+    if (
+        !active ||
+        listening ||
+        speaking
+    ) {
+
+        return;
+
+    }
+
+
+    try {
+
+        recognition.start();
+
+    } catch(e) {
+
+        console.log(
+            "Start error:",
+            e
+        );
+
+    }
 
 }
 
 
-// ==================================================
-// SEND TO AI
-// ==================================================
+// ========================================
+// SEND TO BACKEND
+// ========================================
 
-async function sendMessage(message) {
+async function sendToMAX(message) {
 
-    if (!message) {
-        return;
-    }
-
-
-    requestInProgress = true;
-
-    thinking = true;
-
-    speaking = false;
-
-
-    /*
-    Stop recognition temporarily while sending
-    the request. This prevents multiple requests.
-    */
-
-    try {
-
-        recognition.stop();
-
-    }
-
-    catch(error) {}
-
-
-    recognitionRunning = false;
-
+    status.textContent =
+    "🧠 Thinking...";
 
     orb.className =
     "thinking";
-
-
-    statusBox.textContent =
-    "Thinking... 🧠";
-
-
-    responseBox.innerHTML =
-    "<b>You:</b> " +
-    escapeHtml(message) +
-
-    "<br><br>" +
-
-    "<b>MAX:</b> Thinking...";
 
 
     try {
@@ -728,7 +491,7 @@ async function sendMessage(message) {
 
             throw new Error(
                 data.error ||
-                "MAX server error"
+                "MAX error"
             );
 
         }
@@ -738,51 +501,49 @@ async function sendMessage(message) {
         data.reply || "";
 
 
-        thinking = false;
-
-        requestInProgress = false;
-
-
         responseBox.innerHTML =
         "<b>You:</b> " +
-        escapeHtml(message) +
+        escapeHTML(message) +
 
         "<br><br>" +
 
         "<b>MAX:</b> " +
-        escapeHtml(reply);
+        escapeHTML(reply);
 
 
-        speakReply(reply);
+        speak(
+            reply,
+            function() {
 
-    }
+                if (active) {
 
-    catch(error) {
+                    status.textContent =
+                    'Say "MAX"... 🎤';
 
-        thinking = false;
+                    startListening();
 
-        requestInProgress = false;
+                }
 
-        speaking = false;
+            }
+        );
 
+
+    } catch(error) {
 
         orb.className = "";
 
 
-        responseBox.innerHTML =
-        "<b>Error:</b> " +
-        escapeHtml(
-            error.message
-        );
+        status.textContent =
+        "❌ " +
+        error.message;
 
 
-        statusBox.textContent =
-        "Something went wrong.";
+        if (active) {
 
-
-        if (maxActive) {
-
-            startRecognition();
+            setTimeout(
+                startListening,
+                1000
+            );
 
         }
 
@@ -791,12 +552,178 @@ async function sendMessage(message) {
 }
 
 
-// ==================================================
-// SPEAK RESPONSE
-// ==================================================
+// ========================================
+// SPEAK
+// ========================================
 
-function speakReply(text) {
+function speak(text, finished) {
 
-    if (!text) {
+    speechSynthesis.cancel();
 
-        speaking = false; 
+
+    const clean =
+    cleanText(text);
+
+
+    if (!clean) {
+
+        finished();
+
+        return;
+
+    }
+
+
+    const utterance =
+    new SpeechSynthesisUtterance(
+        clean
+    );
+
+
+    speaking = true;
+
+    orb.className =
+    "speaking";
+
+
+    if (
+        /[\u0900-\u097F]/.test(text)
+    ) {
+
+        utterance.lang =
+        "hi-IN";
+
+    } else {
+
+        utterance.lang =
+        "en-IN";
+
+    }
+
+
+    utterance.rate =
+    1;
+
+
+    utterance.pitch =
+    1;
+
+
+    utterance.onstart =
+    function() {
+
+        status.textContent =
+        "🔊 MAX is speaking...";
+
+    };
+
+
+    utterance.onend =
+    function() {
+
+        speaking = false;
+
+        orb.className = "";
+
+
+        if (finished) {
+
+            finished();
+
+        }
+
+    };
+
+
+    utterance.onerror =
+    function() {
+
+        speaking = false;
+
+        orb.className = "";
+
+
+        if (finished) {
+
+            finished();
+
+        }
+
+    };
+
+
+    speechSynthesis.speak(
+        utterance
+    );
+
+}
+
+
+// ========================================
+// CLEAN SPEECH
+// ========================================
+
+function cleanText(text) {
+
+    return text
+
+        .replace(
+            /```[\s\S]*?```/g,
+            ""
+        )
+
+        .replace(
+            /\*\*/g,
+            ""
+        )
+
+        .replace(
+            /\*/g,
+            ""
+        )
+
+        .replace(
+            /`/g,
+            ""
+        )
+
+        .replace(
+            /[#_>-]/g,
+            " "
+        )
+
+        .replace(
+            /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,
+            ""
+        )
+
+        .replace(
+            /\s+/g,
+            " "
+        )
+
+        .trim();
+
+}
+
+
+// ========================================
+// SECURITY
+// ========================================
+
+function escapeHTML(text) {
+
+    const div =
+    document.createElement("div");
+
+    div.textContent =
+    text;
+
+    return div.innerHTML;
+
+}
+
+</script>
+
+</body>
+</html>
