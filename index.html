@@ -1,178 +1,121 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MAX AI</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAX AI</title>
 
-<style>
-*{box-sizing:border-box}
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-body{
-  margin:0;
-  min-height:100vh;
-  background:#0b0b0f;
-  color:white;
-  font-family:Arial,sans-serif;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-}
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #080808;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-.app{
-  width:100%;
-  max-width:500px;
-  min-height:100vh;
-  padding:30px 20px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-}
+    .app {
+      width: 100%;
+      max-width: 500px;
+      padding: 25px;
+      text-align: center;
+    }
 
-h1{
-  margin-top:40px;
-  font-size:42px;
-  letter-spacing:4px;
-}
+    h1 {
+      font-size: 55px;
+      margin: 10px 0;
+      letter-spacing: 5px;
+    }
 
-#status{
-  margin-top:10px;
-  color:#aaa;
-  text-align:center;
-  min-height:24px;
-}
+    .status {
+      margin: 15px 0;
+      color: #aaa;
+      min-height: 24px;
+    }
 
-.orb{
-  width:180px;
-  height:180px;
-  margin:70px 0 35px;
-  border-radius:50%;
-  background:radial-gradient(
-    circle,
-    #fff 0%,
-    #777 35%,
-    #111 70%
-  );
-  box-shadow:0 0 50px rgba(255,255,255,.25);
-  transition:.3s;
-}
+    .orb {
+      width: 170px;
+      height: 170px;
+      margin: 30px auto;
+      border-radius: 50%;
+      background: radial-gradient(circle, #444, #111 65%, #000);
+      box-shadow: 0 0 40px #222;
+      transition: 0.3s;
+    }
 
-.orb.active{
-  box-shadow:0 0 80px rgba(255,255,255,.6);
-  transform:scale(1.05);
-}
+    .orb.active {
+      box-shadow: 0 0 60px #777;
+      transform: scale(1.05);
+    }
 
-button{
-  width:220px;
-  padding:15px;
-  border:none;
-  border-radius:30px;
-  margin:8px;
-  font-size:17px;
-  cursor:pointer;
-}
+    button {
+      border: none;
+      border-radius: 30px;
+      padding: 14px 28px;
+      font-size: 17px;
+      margin: 8px;
+      cursor: pointer;
+      background: white;
+      color: black;
+    }
 
-#startBtn{
-  background:white;
-  color:black;
-}
+    input {
+      width: 90%;
+      padding: 14px;
+      border-radius: 25px;
+      border: 1px solid #444;
+      background: #151515;
+      color: white;
+      outline: none;
+      font-size: 16px;
+    }
 
-#stopBtn{
-  background:#333;
-  color:white;
-}
-
-.chat{
-  width:100%;
-  margin-top:30px;
-  display:flex;
-  gap:8px;
-}
-
-#input{
-  flex:1;
-  padding:13px;
-  border-radius:20px;
-  border:1px solid #444;
-  background:#17171c;
-  color:white;
-  outline:none;
-}
-
-#sendBtn{
-  width:70px;
-  margin:0;
-  padding:10px;
-  background:white;
-  color:black;
-}
-
-#reply{
-  width:100%;
-  margin-top:20px;
-  padding:15px;
-  background:#15151a;
-  border-radius:15px;
-  min-height:50px;
-  line-height:1.5;
-}
-</style>
+    .reply {
+      margin-top: 25px;
+      min-height: 50px;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+  </style>
 </head>
 
 <body>
 
 <div class="app">
 
-<h1>MAX</h1>
+  <h1>MAX</h1>
 
-<div id="status">MAX is sleeping</div>
+  <div id="status" class="status">
+    Press START MAX
+  </div>
 
-<div id="orb" class="orb"></div>
+  <div id="orb" class="orb"></div>
 
-<button id="startBtn">START MAX</button>
-<button id="stopBtn">STOP MAX</button>
+  <button id="startBtn">START MAX</button>
 
-<div class="chat">
-<input id="input" type="text" placeholder="Type to MAX...">
-<button id="sendBtn">Send</button>
+  <div>
+    <input
+      id="textInput"
+      type="text"
+      placeholder="Type something..."
+    >
+    <button id="sendBtn">SEND</button>
+  </div>
+
+  <div id="reply" class="reply"></div>
+
 </div>
-
-<div id="reply"></div>
-
-</div>
-
 
 <script>
 
-const BACKEND =
-"https://max-backend-u4r6.onrender.com";
-
-const statusText =
-document.getElementById("status");
-
-const orb =
-document.getElementById("orb");
-
-const startBtn =
-document.getElementById("startBtn");
-
-const stopBtn =
-document.getElementById("stopBtn");
-
-const input =
-document.getElementById("input");
-
-const sendBtn =
-document.getElementById("sendBtn");
-
-const replyBox =
-document.getElementById("reply");
-
-
-const SpeechRecognition =
-window.SpeechRecognition ||
-window.webkitSpeechRecognition;
-
+const BACKEND = "https://max-backend-u4r6.onrender.com";
 
 let recognition = null;
 
@@ -183,751 +126,548 @@ let processing = false;
 
 let conversationMode = false;
 
+let silenceTimer = null;
 let restartTimer = null;
 
-let silenceTimer = null;
 
-let lastReply = "";
-let lastReplyTime = 0;
+/* ---------------- STATUS ---------------- */
 
-
-/* =========================
-   STATUS
-========================= */
-
-function setStatus(text){
-  statusText.textContent = text;
+function setStatus(text) {
+  document.getElementById("status").textContent = text;
 }
 
 
-/* =========================
-   CLEAN TEXT
-========================= */
+/* ---------------- ORB ---------------- */
 
-function cleanSpeech(text){
-
-  if(!text) return "";
-
-  return text
-    .replace(/```[\s\S]*?```/g,"")
-    .replace(/[*_#`]/g,"")
-    .replace(/\s+/g," ")
-    .trim();
+function setOrb(active) {
+  document.getElementById("orb").classList.toggle("active", active);
 }
 
 
-/* =========================
-   STOP RECOGNITION
-========================= */
+/* ---------------- SPEAK ---------------- */
 
-function stopRecognition(){
+function speak(text) {
 
-  listening=false;
-
-  if(!recognition) return;
-
-  try{
-    recognition.stop();
-  }catch(e){}
-
-  orb.classList.remove("active");
-}
-
-
-/* =========================
-   START RECOGNITION
-========================= */
-
-function startRecognition(){
-
-  if(!maxRunning) return;
-
-  if(speaking) return;
-
-  if(processing) return;
-
-  if(listening) return;
-
-
-  if(!recognition){
-    createRecognition();
+  if (!text) {
+    startListening();
+    return;
   }
 
-
-  try{
-
-    listening=true;
-
-    recognition.start();
-
-  }catch(e){
-
-    listening=false;
-
-    setTimeout(()=>{
-      if(
-        maxRunning &&
-        !speaking &&
-        !processing &&
-        !listening
-      ){
-        startRecognition();
-      }
-    },700);
-  }
-}
-
-
-/* =========================
-   CREATE RECOGNITION
-========================= */
-
-function createRecognition(){
-
-  recognition =
-    new SpeechRecognition();
-
-
-  recognition.continuous=false;
-
-  recognition.interimResults=false;
-
-  recognition.lang="en-IN";
-
-
-  recognition.onstart=()=>{
-
-    listening=true;
-
-    orb.classList.add("active");
-
-    if(conversationMode){
-      setStatus("Listening...");
-    }else{
-      setStatus("Say MAX...");
-    }
-  };
-
-
-  recognition.onresult=async(event)=>{
-
-    if(!maxRunning) return;
-
-    if(speaking) return;
-
-    if(processing) return;
-
-
-    const text =
-      event.results[
-        event.results.length-1
-      ][0].transcript.trim();
-
-
-    listening=false;
-
-    orb.classList.remove("active");
-
-
-    if(!text){
-
-      restartListening();
-
-      return;
-    }
-
-
-    console.log("Heard:",text);
-
-
-    /* =========================
-       WAKE WORD
-    ========================= */
-
-    if(!conversationMode){
-
-      const lower =
-        text.toLowerCase();
-
-
-      if(
-        lower==="max" ||
-        lower.includes("max")
-      ){
-
-        conversationMode=true;
-
-        setStatus("Haan boss...");
-
-        await speak("Haan boss.");
-
-
-        if(maxRunning){
-
-          setTimeout(()=>{
-            startConversationListening();
-          },500);
-
-        }
-
-      }else{
-
-        restartListening();
-      }
-
-      return;
-    }
-
-
-    /* =========================
-       CONVERSATION MODE
-    ========================= */
-
-    resetSilenceTimer();
-
-    await sendMessage(text);
-  };
-
-
-  recognition.onerror=(event)=>{
-
-    console.log(
-      "Speech error:",
-      event.error
-    );
-
-    listening=false;
-
-    orb.classList.remove("active");
-
-
-    if(!maxRunning) return;
-
-
-    if(
-      event.error==="not-allowed" ||
-      event.error==="service-not-allowed"
-    ){
-
-      setStatus(
-        "Microphone permission required."
-      );
-
-      return;
-    }
-
-
-    restartListening();
-  };
-
-
-  recognition.onend=()=>{
-
-    listening=false;
-
-    orb.classList.remove("active");
-
-
-    if(!maxRunning) return;
-
-    if(speaking) return;
-
-    if(processing) return;
-
-
-    restartListening();
-  };
-}
-
-
-/* =========================
-   CONVERSATION LISTENING
-========================= */
-
-function startConversationListening(){
-
-  if(!maxRunning) return;
-
-  if(speaking) return;
-
-  if(processing) return;
-
-
-  conversationMode=true;
-
-  setStatus("Listening...");
-
-  restartListening();
-}
-
-
-/* =========================
-   RESTART
-========================= */
-
-function restartListening(){
-
-  if(!maxRunning) return;
-
-  if(speaking) return;
-
-  if(processing) return;
-
-  clearTimeout(restartTimer);
-
-
-  restartTimer=setTimeout(()=>{
-
-    if(!maxRunning) return;
-
-    if(speaking) return;
-
-    if(processing) return;
-
-    if(listening) return;
-
-
-    startRecognition();
-
-  },500);
-}
-
-
-/* =========================
-   SILENCE TIMER
-========================= */
-
-function resetSilenceTimer(){
-
-  clearTimeout(silenceTimer);
-
-
-  silenceTimer=setTimeout(()=>{
-
-    if(
-      maxRunning &&
-      !speaking &&
-      !processing
-    ){
-
-      conversationMode=false;
-
-      setStatus("Say MAX...");
-
-    }
-
-  },12000);
-}
-
-
-/* =========================
-   SEND MESSAGE
-========================= */
-
-async function sendMessage(message){
-
-  if(!message) return;
-
-  if(processing) return;
-
-  if(speaking) return;
-
-
-  processing=true;
+  speaking = true;
+  listening = false;
 
   stopRecognition();
 
-  setStatus("Thinking...");
+  setOrb(true);
+  setStatus("MAX बोल रहा है...");
 
+  window.speechSynthesis.cancel();
 
-  try{
+  const utterance = new SpeechSynthesisUtterance(text);
 
-    const response =
-      await fetch(
-        `${BACKEND}/chat`,
-        {
-          method:"POST",
+  // Hindi/Hinglish detection
+  const hindiPattern =
+    /[\u0900-\u097F]|hai|haan|boss|bro|kaise|kya|mujhe|aap|mera|meri|ye|yeh|nahi|nahin|kr|kar|bata|bta|acha|achha|hoga|chahiye/i;
 
-          headers:{
-            "Content-Type":
-              "application/json"
-          },
-
-          body:JSON.stringify({
-            message:message
-          })
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if(!response.ok){
-
-      throw new Error(
-        data.error ||
-        "Server error"
-      );
-    }
-
-
-    let reply =
-      cleanSpeech(data.reply);
-
-
-    if(!reply){
-
-      reply=
-        "Sorry boss, mujhe samajh nahi aaya.";
-    }
-
-
-    const now=Date.now();
-
-
-    if(
-      reply===lastReply &&
-      now-lastReplyTime<5000
-    ){
-
-      processing=false;
-
-      conversationMode=true;
-
-      startConversationListening();
-
-      return;
-    }
-
-
-    lastReply=reply;
-
-    lastReplyTime=now;
-
-
-    replyBox.textContent=reply;
-
-
-    processing=false;
-
-
-    await speak(reply);
-
-
-    /*
-      Keep conversation alive.
-    */
-
-    conversationMode=true;
-
-
-    if(maxRunning){
-
-      setStatus("Listening...");
-
-      setTimeout(()=>{
-
-        if(
-          maxRunning &&
-          !speaking &&
-          !processing &&
-          !listening
-        ){
-
-          startConversationListening();
-
-        }
-
-      },700);
-
-    }
-
-
-  }catch(error){
-
-    console.error(error);
-
-    processing=false;
-
-    replyBox.textContent=
-      "MAX connection error.";
-
-    conversationMode=true;
-
-    setStatus("Listening...");
-
-    restartListening();
+  if (hindiPattern.test(text)) {
+    utterance.lang = "hi-IN";
+  } else {
+    utterance.lang = "en-IN";
   }
+
+  utterance.rate = 0.95;
+  utterance.pitch = 1;
+
+  const voices = window.speechSynthesis.getVoices();
+
+  let selectedVoice = null;
+
+  if (utterance.lang === "hi-IN") {
+    selectedVoice =
+      voices.find(v => v.lang === "hi-IN") ||
+      voices.find(v => v.lang.startsWith("hi"));
+  } else {
+    selectedVoice =
+      voices.find(v => v.lang === "en-IN") ||
+      voices.find(v => v.lang.startsWith("en"));
+  }
+
+  if (selectedVoice) {
+    utterance.voice = selectedVoice;
+  }
+
+  utterance.onend = function () {
+
+    speaking = false;
+    setOrb(false);
+
+    // IMPORTANT:
+    // Conversation mode stays ON after every answer.
+    if (maxRunning && conversationMode) {
+      setStatus("Listening...");
+      startListening();
+    } else if (maxRunning) {
+      setStatus("Say MAX...");
+      startListening();
+    }
+  };
+
+  utterance.onerror = function () {
+
+    speaking = false;
+    setOrb(false);
+
+    if (maxRunning) {
+      startListening();
+    }
+  };
+
+  window.speechSynthesis.speak(utterance);
 }
 
 
-/* =========================
-   TEXT TO SPEECH
-========================= */
+/* ---------------- STOP RECOGNITION ---------------- */
 
-function speak(text){
+function stopRecognition() {
 
-  return new Promise((resolve)=>{
+  if (!recognition) return;
 
-    if(!text){
+  try {
+    recognition.abort();
+  } catch (e) {}
 
-      resolve();
-
-      return;
-    }
-
-
-    stopRecognition();
-
-    speaking=true;
-
-    setStatus("MAX speaking...");
-
-
-    window.speechSynthesis.cancel();
-
-
-    const utterance =
-      new SpeechSynthesisUtterance(text);
-
-
-    /*
-      Better Hindi/Hinglish detection.
-    */
-
-    const hindiChars =
-      (text.match(/[\u0900-\u097F]/g)||[]).length;
-
-
-    const totalChars =
-      text.replace(/\s/g,"").length;
-
-
-    if(
-      hindiChars>0 ||
-      /(\bmain\b|\bmai\b|\bhai\b|\bhaan\b|\baap\b|\baapko\b|\bkya\b|\bkaise\b|\bboss\b)/i.test(text)
-    ){
-
-      utterance.lang="hi-IN";
-
-    }else{
-
-      utterance.lang="en-IN";
-    }
-
-
-    utterance.rate=0.95;
-
-    utterance.pitch=1;
-
-
-    /*
-      Try to select a better installed voice.
-    */
-
-    const voices =
-      window.speechSynthesis.getVoices();
-
-
-    const preferredVoice =
-      voices.find(v =>
-        v.lang==="hi-IN"
-      ) ||
-      voices.find(v =>
-        v.lang==="en-IN"
-      );
-
-
-    if(preferredVoice){
-
-      utterance.voice=
-        preferredVoice;
-    }
-
-
-    let finished=false;
-
-
-    function finish(){
-
-      if(finished) return;
-
-      finished=true;
-
-      speaking=false;
-
-
-      setTimeout(()=>{
-        resolve();
-      },600);
-    }
-
-
-    utterance.onend=finish;
-
-    utterance.onerror=finish;
-
-
-    window.speechSynthesis.speak(
-      utterance
-    );
-
-  });
+  listening = false;
 }
 
 
-/* =========================
-   START MAX
-========================= */
+/* ---------------- START RECOGNITION ---------------- */
 
-startBtn.onclick=()=>{
+function startListening() {
 
-  if(!SpeechRecognition){
+  if (!maxRunning) return;
+  if (speaking) return;
+  if (processing) return;
+  if (listening) return;
+
+  if (!recognition) {
+    createRecognition();
+  }
+
+  clearTimeout(restartTimer);
+
+  restartTimer = setTimeout(() => {
+
+    if (!maxRunning) return;
+    if (speaking) return;
+    if (processing) return;
+    if (listening) return;
+
+    try {
+      recognition.start();
+    } catch (e) {}
+
+  }, 300);
+
+}
+
+
+/* ---------------- RECOGNITION ---------------- */
+
+function createRecognition() {
+
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
 
     setStatus(
-      "Voice recognition is not supported in this browser."
+      "Speech recognition supported nahi hai. Chrome use karo."
     );
 
     return;
   }
 
+  recognition = new SpeechRecognition();
 
-  clearTimeout(restartTimer);
+  recognition.continuous = false;
+  recognition.interimResults = false;
 
-  clearTimeout(silenceTimer);
-
-
-  maxRunning=true;
-
-  speaking=false;
-
-  processing=false;
-
-  listening=false;
-
-  conversationMode=false;
+  // Indian English works well for Hinglish
+  recognition.lang = "en-IN";
 
 
-  replyBox.textContent="";
+  recognition.onstart = function () {
+
+    listening = true;
+
+    setOrb(true);
+
+    if (conversationMode) {
+      setStatus("Listening...");
+    } else {
+      setStatus("Say MAX...");
+    }
+
+    startSilenceTimer();
+  };
 
 
-  setStatus("Say MAX...");
+  recognition.onresult = async function(event) {
+
+    clearSilenceTimer();
+
+    listening = false;
+
+    const text =
+      event.results[event.results.length - 1][0].transcript.trim();
+
+    if (!text) {
+      startListening();
+      return;
+    }
+
+    console.log("Heard:", text);
+
+    await handleVoice(text);
+  };
 
 
-  if(recognition){
+  recognition.onerror = function(event) {
 
-    try{
-      recognition.abort();
-    }catch(e){}
+    console.log("Speech error:", event.error);
 
-  }
+    listening = false;
 
+    clearSilenceTimer();
 
-  recognition=null;
+    if (!maxRunning || speaking || processing) {
+      return;
+    }
 
-
-  createRecognition();
-
-  startRecognition();
-};
-
-
-/* =========================
-   STOP MAX
-========================= */
-
-stopBtn.onclick=()=>{
-
-  maxRunning=false;
-
-  speaking=false;
-
-  processing=false;
-
-  listening=false;
-
-  conversationMode=false;
+    // Don't exit conversation mode on normal speech errors.
+    startListening();
+  };
 
 
-  clearTimeout(restartTimer);
+  recognition.onend = function() {
 
-  clearTimeout(silenceTimer);
+    listening = false;
 
+    clearSilenceTimer();
 
-  stopRecognition();
+    if (!maxRunning) return;
+    if (speaking) return;
+    if (processing) return;
 
+    // VERY IMPORTANT:
+    // If conversation mode is ON,
+    // immediately listen again.
+    if (conversationMode) {
+      setStatus("Listening...");
+      startListening();
+    } else {
+      setStatus("Say MAX...");
+      startListening();
+    }
+  };
 
-  window.speechSynthesis.cancel();
-
-
-  orb.classList.remove("active");
-
-
-  setStatus("MAX is sleeping");
-};
-
-
-/* =========================
-   TYPED INPUT
-========================= */
-
-async function sendTypedMessage(){
-
-  const message=
-    input.value.trim();
-
-
-  if(!message) return;
-
-
-  input.value="";
-
-
-  await sendMessage(message);
 }
 
 
-sendBtn.onclick=
-  sendTypedMessage;
+/* ---------------- SILENCE TIMER ---------------- */
+
+function startSilenceTimer() {
+
+  clearSilenceTimer();
+
+  silenceTimer = setTimeout(() => {
+
+    if (!maxRunning) return;
+    if (speaking || processing) return;
+
+    // Only leave conversation mode after
+    // 12 seconds of complete silence.
+    conversationMode = false;
+
+    setStatus("Say MAX...");
+
+  }, 12000);
+}
 
 
-input.addEventListener(
-  "keydown",
-  event=>{
+function clearSilenceTimer() {
 
-    if(event.key==="Enter"){
+  if (silenceTimer) {
+    clearTimeout(silenceTimer);
+    silenceTimer = null;
+  }
 
-      sendTypedMessage();
+}
+
+
+/* ---------------- VOICE HANDLER ---------------- */
+
+async function handleVoice(text) {
+
+  clearSilenceTimer();
+
+  setOrb(false);
+
+  const lower = text.toLowerCase().trim();
+
+
+  /*
+    WAKE WORD MODE
+
+    If conversation mode is OFF,
+    MAX requires "MAX" / "Hello MAX".
+  */
+
+  if (!conversationMode) {
+
+    const wakeWords = [
+      "max",
+      "hello max",
+      "hey max",
+      "hello max."
+    ];
+
+    const containsWakeWord =
+      wakeWords.some(word => lower.includes(word));
+
+    if (!containsWakeWord) {
+
+      // Ignore random speech while waiting for MAX.
+      startListening();
+
+      return;
+    }
+
+    // Wake word detected.
+    conversationMode = true;
+
+    setStatus("Haan boss.");
+
+    speak("Haan boss.");
+
+    return;
+  }
+
+
+  /*
+    CONVERSATION MODE
+
+    Here MAX DOES NOT require wake word.
+
+    Example:
+
+    Hello MAX
+    → Haan boss.
+
+    Capital of USA?
+    → Washington, D.C.
+
+    Capital of India?
+    → New Delhi
+
+    No "MAX" needed.
+  */
+
+  await sendToBackend(text);
+
+}
+
+
+/* ---------------- BACKEND ---------------- */
+
+async function sendToBackend(message) {
+
+  if (!message) return;
+
+  processing = true;
+
+  stopRecognition();
+
+  setOrb(true);
+  setStatus("Thinking...");
+
+  document.getElementById("reply").textContent = "";
+
+
+  try {
+
+    const response = await fetch(
+      `${BACKEND}/chat`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          message: message,
+          userId: "default-user"
+        })
+      }
+    );
+
+
+    if (!response.ok) {
+      throw new Error("Backend error");
+    }
+
+
+    const data = await response.json();
+
+    const answer =
+      data.reply ||
+      data.message ||
+      "Sorry boss, mujhe answer nahi mila.";
+
+
+    document.getElementById("reply").textContent = answer;
+
+
+    processing = false;
+
+    setOrb(false);
+
+
+    /*
+      KEEP CONVERSATION MODE ON.
+
+      This is the main fix.
+    */
+
+    if (maxRunning) {
+
+      conversationMode = true;
+
+      speak(answer);
+
+    }
+
+
+  } catch (error) {
+
+    console.error(error);
+
+    processing = false;
+
+    setOrb(false);
+
+    const errorText =
+      "Boss, backend se connection nahi ho pa raha.";
+
+    document.getElementById("reply").textContent = errorText;
+
+    if (maxRunning) {
+
+      conversationMode = true;
+
+      speak(errorText);
 
     }
 
   }
-);
 
-
-/* =========================
-   CHECK SUPPORT
-========================= */
-
-if(!SpeechRecognition){
-
-  setStatus(
-    "Voice recognition is not supported in this browser."
-  );
 }
 
 
-/*
-  Load voices once browser provides them.
-*/
+/* ---------------- START BUTTON ---------------- */
 
-window.speechSynthesis.onvoiceschanged=()=>{
+document
+  .getElementById("startBtn")
+  .addEventListener("click", function() {
+
+    if (maxRunning) {
+
+      maxRunning = false;
+      conversationMode = false;
+
+      clearSilenceTimer();
+      clearTimeout(restartTimer);
+
+      stopRecognition();
+
+      window.speechSynthesis.cancel();
+
+      speaking = false;
+      processing = false;
+
+      setOrb(false);
+      setStatus("MAX stopped.");
+
+      this.textContent = "START MAX";
+
+      return;
+    }
+
+
+    maxRunning = true;
+    conversationMode = false;
+
+    this.textContent = "STOP MAX";
+
+    setStatus("Say MAX...");
+
+    createRecognition();
+    startListening();
+
+  });
+
+
+/* ---------------- TEXT SEND ---------------- */
+
+document
+  .getElementById("sendBtn")
+  .addEventListener("click", async function() {
+
+    const input =
+      document.getElementById("textInput");
+
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    input.value = "";
+
+    // Typed messages also activate conversation mode.
+    if (maxRunning) {
+      conversationMode = true;
+    }
+
+    await sendToBackend(text);
+
+  });
+
+
+/* Enter key */
+
+document
+  .getElementById("textInput")
+  .addEventListener("keydown", function(event) {
+
+    if (event.key === "Enter") {
+
+      document
+        .getElementById("sendBtn")
+        .click();
+
+    }
+
+  });
+
+
+/* ---------------- VOICE LOAD ---------------- */
+
+window.speechSynthesis.onvoiceschanged = function() {
   window.speechSynthesis.getVoices();
 };
 
 </script>
 
 </body>
-  </html>
+</html>
