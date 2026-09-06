@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MAX AI</title>
+  <style>
+    body {
+      background: #0f172a;
+      color: white;
+      font-family: Arial;
+      text-align: center;
+      padding: 50px;
+    }
+    .box {
+      max-width: 600px;
+      margin: auto;
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 15px;
+    }
+    input {
+      width: 80%;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    #response {
+      margin-top: 20px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>MAX AI 🤖</h1>
+    <input id="msg" placeholder="Ask MAX anything...">
+    <br><br>
+    <button onclick="sendMessage()">Send</button>
+    <div id="response"></div>
+  </div>
+
+  <script>
+    async function sendMessage() {
+      const msg = document.getElementById("msg").value;
+
+      const res = await fetch("https://max-backend-u4r6.onrender.com/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: msg })
+      });
+
+      const data = await res.json();
+      document.getElementById("response").innerHTML =
+        "<b>MAX:</b> " + data.reply;
+    }
+  </script>
+</body>
+</html>
