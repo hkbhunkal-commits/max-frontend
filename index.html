@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>MAX AI</title>
 
   <style>
@@ -12,75 +13,78 @@
       color: white;
       font-family: Arial, sans-serif;
       text-align: center;
-      padding: 30px 15px;
+      padding: 20px;
     }
 
     .box {
       max-width: 600px;
-      margin: 50px auto;
+      margin: 40px auto;
       background: #1e293b;
       padding: 25px;
-      border-radius: 18px;
+      border-radius: 20px;
     }
 
     h1 {
       margin-bottom: 25px;
     }
 
-    .input-row {
+    #orb {
+      width: 120px;
+      height: 120px;
+      margin: 20px auto;
+      border-radius: 50%;
+      background: #334155;
       display: flex;
-      gap: 8px;
+      align-items: center;
       justify-content: center;
+      font-size: 45px;
+      transition: 0.3s;
     }
 
-    input {
-      flex: 1;
-      min-width: 0;
-      box-sizing: border-box;
-      padding: 13px;
-      border-radius: 10px;
-      border: none;
-      outline: none;
-      font-size: 16px;
+    #orb.listening {
+      background: #2563eb;
+      transform: scale(1.08);
+    }
+
+    #orb.speaking {
+      background: #16a34a;
+      transform: scale(1.08);
     }
 
     button {
-      padding: 12px 20px;
-      margin-top: 15px;
       border: none;
-      border-radius: 10px;
-      cursor: pointer;
+      border-radius: 12px;
+      padding: 14px 22px;
+      margin: 8px;
       font-size: 16px;
       font-weight: bold;
+      cursor: pointer;
     }
 
-    #micBtn {
-      margin-top: 0;
-      width: 52px;
-      padding: 12px 0;
-      font-size: 20px;
-    }
-
-    #speakBtn {
-      margin-left: 8px;
-    }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+    #voiceBtn {
+      font-size: 22px;
+      padding: 18px 28px;
     }
 
     #status {
-      margin-top: 12px;
-      font-size: 14px;
+      margin: 15px;
       color: #cbd5e1;
     }
 
     #response {
       margin-top: 25px;
       text-align: left;
-      line-height: 1.5;
+      line-height: 1.6;
       white-space: pre-wrap;
+    }
+
+    #msg {
+      width: 90%;
+      box-sizing: border-box;
+      padding: 13px;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
     }
   </style>
 </head>
@@ -89,369 +93,297 @@
 
   <div class="box">
 
-    <h1>MAX AI 🤖</h1>
+    <h1>MAX 🤖</h1>
 
-    <div class="input-row">
+    <div id="orb">🤖</div>
 
-      <input
-        id="msg"
-        type="text"
-        placeholder="Ask MAX anything..."
-      >
-
-      <button id="micBtn" onclick="startVoiceInput()">🎤</button>
-
+    <div id="status">
+      Tap the microphone and talk
     </div>
 
-    <button id="sendBtn" onclick="sendMessage()">Send</button>
+    <button id="voiceBtn" onclick="startVoice()">
+      🎤 Talk to MAX
+    </button>
 
-    <button id="speakBtn" onclick="speakLastReply()">🔊 Speak</button>
+    <br>
 
-    <div id="status"></div>
+    <input
+      id="msg"
+      type="text"
+      placeholder="Or type a message..."
+    >
+
+    <br>
+
+    <button onclick="sendTypedMessage()">
+      Send
+    </button>
 
     <div id="response"></div>
 
   </div>
 
 
-  <script>
+<script>
 
-    const input = document.getElementById("msg");
-    const micBtn = document.getElementById("micBtn");
-    const statusBox = document.getElementById("status");
+const BACKEND =
+  "https://max-backend-u4r6.onrender.com/chat";
 
-    let lastReply = "";
+const msgInput =
+  document.getElementById("msg");
 
+const responseBox =
+  document.getElementById("response");
 
-    // =========================
-    // VOICE INPUT
-    // =========================
+const statusBox =
+  document.getElementById("status");
 
-    const SpeechRecognition =
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
+const orb =
+  document.getElementById("orb");
 
-    let recognition = null;
-
-    if (SpeechRecognition) {
-
-      recognition = new SpeechRecognition();
-
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = "en-IN";
-
-      recognition.onstart = function () {
-
-        micBtn.textContent = "🔴";
-        statusBox.textContent = "Listening... 🎤";
-
-      };
-
-      recognition.onresult = function (event) {
-
-        const transcript =
-          event.results[0][0].transcript;
-
-        input.value = transcript;
-
-        statusBox.textContent =
-          "Voice captured ✅";
-
-      };
-
-      recognition.onerror = function (event) {
-
-        console.error("Speech error:", event.error);
-
-        statusBox.textContent =
-          "Mic error: " + event.error;
-
-        micBtn.textContent = "🎤";
-
-      };
-
-      recognition.onend = function () {
-
-        micBtn.textContent = "🎤";
-
-      };
-
-    } else {
-
-      micBtn.disabled = true;
-
-      statusBox.textContent =
-        "Voice input is not supported in this browser.";
-
-    }
+const voiceBtn =
+  document.getElementById("voiceBtn");
 
 
-    function startVoiceInput() {
-
-      if (!recognition) {
-        return;
-      }
-
-      try {
-        recognition.start();
-      } catch (error) {
-        console.log(error);
-      }
-
-    }
+let recognition = null;
+let isSpeaking = false;
 
 
-    // =========================
-    // SEND MESSAGE
-    // =========================
+// ============================
+// SPEECH RECOGNITION
+// ============================
 
-    async function sendMessage() {
-
-      const button =
-        document.getElementById("sendBtn");
-
-      const responseBox =
-        document.getElementById("response");
-
-      const msg =
-        input.value.trim();
+const SpeechRecognition =
+  window.SpeechRecognition ||
+  window.webkitSpeechRecognition;
 
 
-      if (!msg) {
+if (SpeechRecognition) {
 
-        responseBox.innerHTML =
-          "<b>Please type or speak a message.</b>";
+  recognition = new SpeechRecognition();
 
-        return;
+  recognition.continuous = false;
+  recognition.interimResults = false;
 
-      }
-
-
-      button.disabled = true;
-
-      responseBox.innerHTML =
-        "MAX is thinking... 🤔";
+  recognition.lang = "en-IN";
 
 
-      try {
+  recognition.onstart = function () {
 
-        const res = await fetch(
-          "https://max-backend-u4r6.onrender.com/chat",
-          {
-            method: "POST",
+    orb.classList.add("listening");
 
-            headers: {
-              "Content-Type": "application/json"
-            },
+    statusBox.textContent =
+      "Listening... 🎤";
 
-            body: JSON.stringify({
-              message: msg
-            })
-          }
-        );
+    voiceBtn.textContent =
+      "🔴 Listening";
+
+  };
 
 
-        const data =
-          await res.json();
+  recognition.onresult = function(event) {
+
+    const text =
+      event.results[0][0].transcript;
+
+    msgInput.value = text;
+
+    orb.classList.remove("listening");
+
+    statusBox.textContent =
+      "Thinking... 🧠";
+
+    sendMessage(text);
+
+  };
 
 
-        if (!res.ok) {
+  recognition.onerror = function(event) {
 
-          throw new Error(
-            data.error || "Server error"
-          );
+    console.log(event.error);
 
+    orb.classList.remove("listening");
+
+    statusBox.textContent =
+      "Mic error. Try again.";
+
+    voiceBtn.textContent =
+      "🎤 Talk to MAX";
+
+  };
+
+
+  recognition.onend = function() {
+
+    orb.classList.remove("listening");
+
+    voiceBtn.textContent =
+      "🎤 Talk to MAX";
+
+  };
+
+}
+
+
+// ============================
+// START VOICE
+// ============================
+
+function startVoice() {
+
+  if (!recognition) {
+
+    statusBox.textContent =
+      "Voice input is not supported.";
+
+    return;
+
+  }
+
+  // Stop MAX if he is speaking
+  if (isSpeaking) {
+
+    window.speechSynthesis.cancel();
+
+    isSpeaking = false;
+
+    orb.classList.remove("speaking");
+
+  }
+
+  try {
+
+    recognition.start();
+
+  } catch(error) {
+
+    console.log(error);
+
+  }
+
+}
+
+
+// ============================
+// SEND TYPED MESSAGE
+// ============================
+
+function sendTypedMessage() {
+
+  const text =
+    msgInput.value.trim();
+
+  if (!text) {
+    return;
+  }
+
+  sendMessage(text);
+
+}
+
+
+// ============================
+// SEND TO MAX
+// ============================
+
+async function sendMessage(message) {
+
+  try {
+
+    responseBox.innerHTML =
+      "<b>MAX:</b> Thinking...";
+
+    statusBox.textContent =
+      "MAX is thinking... 🧠";
+
+
+    const res =
+      await fetch(
+        BACKEND,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+            message: message
+          })
         }
+      );
 
 
-        lastReply =
-          data.reply || "";
+    const data =
+      await res.json();
 
 
-        // Display full reply on screen
-        responseBox.innerHTML =
-          "<b>MAX:</b> " +
-          escapeHtml(lastReply);
+    if (!res.ok) {
 
-
-        // Speak ONLY clean reply
-        speakText(cleanForSpeech(lastReply));
-
-
-      } catch (error) {
-
-        responseBox.innerHTML =
-          "<b>Error:</b> " +
-          escapeHtml(error.message);
-
-      }
-
-
-      button.disabled = false;
+      throw new Error(
+        data.error || "Server error"
+      );
 
     }
 
 
-    // =========================
-    // CLEAN TEXT FOR VOICE
-    // =========================
+    const reply =
+      data.reply || "";
 
-    function cleanForSpeech(text) {
 
-      return text
+    // Show complete reply
+    responseBox.innerHTML =
+      "<b>MAX:</b> " +
+      escapeHtml(reply);
 
-        // Remove markdown bold/italic
-        .replace(/\*\*/g, "")
-        .replace(/\*/g, "")
-        .replace(/__/g, "")
-        .replace(/_/g, "")
 
-        // Remove code formatting
-        .replace(/```[\s\S]*?```/g, "")
-        .replace(/`/g, "")
+    // Speak naturally
+    speakMAX(reply);
 
-        // Remove common emojis/symbols
-        .replace(
-          /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,
-          ""
-        )
 
-        // Remove excessive spaces
-        .replace(/\s+/g, " ")
+  } catch(error) {
 
-        .trim();
+    responseBox.innerHTML =
+      "<b>Error:</b> " +
+      escapeHtml(error.message);
 
-    }
+    statusBox.textContent =
+      "Something went wrong.";
 
+  }
 
-    // =========================
-    // VOICE OUTPUT
-    // =========================
+}
 
-    function speakText(text) {
 
-      if (!("speechSynthesis" in window)) {
+// ============================
+// MAX VOICE
+// ============================
 
-        statusBox.textContent =
-          "Voice output is not supported.";
+function speakMAX(text) {
 
-        return;
+  if (!("speechSynthesis" in window)) {
 
-      }
+    statusBox.textContent =
+      "Voice output is not supported.";
 
+    return;
 
-      if (!text) {
-        return;
-      }
+  }
 
 
-      window.speechSynthesis.cancel();
+  if (!text.trim()) {
+    return;
+  }
 
 
-      const speech =
-        new SpeechSynthesisUtterance(text);
+  // VERY IMPORTANT
+  // Stop previous speech completely
 
+  window.speechSynthesis.cancel();
 
-      // Hindi voice for Hindi replies
-      if (/[\u0900-\u097F]/.test(text)) {
 
-        speech.lang = "hi-IN";
+  const cleanText =
+    cleanForSpeech(text);
 
-      } else {
 
-        speech.lang = "en-IN";
-
-      }
-
-
-      speech.rate = 1;
-      speech.pitch = 1;
-
-
-      speech.onstart = function () {
-
-        statusBox.textContent =
-          "MAX is speaking... 🔊";
-
-      };
-
-
-      speech.onend = function () {
-
-        statusBox.textContent =
-          "Done ✅";
-
-      };
-
-
-      speech.onerror = function () {
-
-        statusBox.textContent =
-          "Voice output error.";
-
-      };
-
-
-      window.speechSynthesis.speak(speech);
-
-    }
-
-
-    // =========================
-    // MANUAL SPEAK BUTTON
-    // =========================
-
-    function speakLastReply() {
-
-      if (!lastReply) {
-
-        statusBox.textContent =
-          "MAX has no reply to speak yet.";
-
-        return;
-
-      }
-
-
-      speakText(cleanForSpeech(lastReply));
-
-    }
-
-
-    // =========================
-    // SECURITY
-    // =========================
-
-    function escapeHtml(text) {
-
-      const div =
-        document.createElement("div");
-
-      div.textContent = text;
-
-      return div.innerHTML;
-
-    }
-
-
-    // =========================
-    // ENTER TO SEND
-    // =========================
-
-    input.addEventListener(
-      "keydown",
-      function (event) {
-
-        if (event.key === "Enter") {
-          sendMessage();
-        }
-
-      }
-    );
-
-  </script>
-
-</body>
-</html> 
-          
+  const speech
