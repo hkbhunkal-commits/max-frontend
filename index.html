@@ -49,7 +49,12 @@
       height: 180px;
       margin: 70px 0 35px;
       border-radius: 50%;
-      background: radial-gradient(circle, #ffffff 0%, #777 35%, #111 70%);
+      background: radial-gradient(
+        circle,
+        #ffffff 0%,
+        #777 35%,
+        #111 70%
+      );
       box-shadow: 0 0 50px rgba(255,255,255,.25);
       transition: .3s;
     }
@@ -130,7 +135,12 @@
   <button id="stopBtn">STOP MAX</button>
 
   <div class="chat">
-    <input id="input" type="text" placeholder="Type to MAX...">
+    <input
+      id="input"
+      type="text"
+      placeholder="Type to MAX..."
+    >
+
     <button id="sendBtn">Send</button>
   </div>
 
@@ -138,21 +148,39 @@
 
 </div>
 
+
 <script>
 
-const BACKEND = "https://max-backend-u4r6.onrender.com";
+const BACKEND =
+  "https://max-backend-u4r6.onrender.com";
 
-const statusText = document.getElementById("status");
-const orb = document.getElementById("orb");
-const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
-const input = document.getElementById("input");
-const sendBtn = document.getElementById("sendBtn");
-const replyBox = document.getElementById("reply");
+
+const statusText =
+  document.getElementById("status");
+
+const orb =
+  document.getElementById("orb");
+
+const startBtn =
+  document.getElementById("startBtn");
+
+const stopBtn =
+  document.getElementById("stopBtn");
+
+const input =
+  document.getElementById("input");
+
+const sendBtn =
+  document.getElementById("sendBtn");
+
+const replyBox =
+  document.getElementById("reply");
+
 
 const SpeechRecognition =
   window.SpeechRecognition ||
   window.webkitSpeechRecognition;
+
 
 let recognition = null;
 
@@ -166,16 +194,25 @@ let wakeMode = true;
 let lastReply = "";
 let lastReplyTime = 0;
 
-if (!SpeechRecognition) {
-  statusText.textContent =
-    "Voice recognition is not supported in this browser.";
-}
+let restartTimer = null;
+
+
+/* =========================
+   STATUS
+========================= */
 
 function setStatus(text) {
   statusText.textContent = text;
 }
 
+
+/* =========================
+   CLEAN SPEECH
+========================= */
+
 function cleanSpeech(text) {
+
+  if (!text) return "";
 
   return text
     .replace(/```[\s\S]*?```/g, "")
@@ -185,213 +222,489 @@ function cleanSpeech(text) {
     .trim();
 }
 
+
+/* =========================
+   STOP RECOGNITION
+========================= */
+
 function stopRecognition() {
+
+  listening = false;
 
   if (!recognition) return;
 
   try {
-    recognition.onend = null;
     recognition.stop();
   } catch (e) {}
 
-  listening = false;
+  orb.classList.remove("active");
 }
+
+
+/* =========================
+   START RECOGNITION
+========================= */
 
 function startRecognition() {
 
   if (!maxRunning) return;
+
   if (speaking) return;
+
   if (processing) return;
+
   if (listening) return;
+
 
   if (!recognition) {
     createRecognition();
   }
 
+
   try {
+
     listening = true;
+
     recognition.start();
+
   } catch (e) {
+
     listening = false;
+
+    console.log(
+      "Recognition start error:",
+      e
+    );
+
+    setTimeout(() => {
+
+      if (
+        maxRunning &&
+        !speaking &&
+        !processing &&
+        !listening
+      ) {
+        startRecognition();
+      }
+
+    }, 700);
   }
 }
 
+
+/* =========================
+   CREATE RECOGNITION
+========================= */
+
 function createRecognition() {
 
-  recognition = new SpeechRecognition();
+  recognition =
+    new SpeechRecognition();
+
 
   recognition.continuous = false;
+
   recognition.interimResults = false;
 
-  // Indian English/Hinglish recognition
   recognition.lang = "en-IN";
+
+
+  /* =========================
+     ON START
+  ========================= */
 
   recognition.onstart = () => {
 
     listening = true;
 
-    if (wakeMode) {
-      setStatus("Say MAX...");
-    } else {
-      setStatus("Listening...");
-    }
-
     orb.classList.add("active");
+
+
+    if (wakeMode) {
+
+      setStatus("Say MAX...");
+
+    } else {
+
+      setStatus(
+        "Listening for your command..."
+      );
+    }
   };
+
+
+  /* =========================
+     ON RESULT
+  ========================= */
 
   recognition.onresult = async (event) => {
 
+    if (!maxRunning) return;
+
+    if (speaking) return;
+
+    if (processing) return;
+
+
     const text =
-      event.results[0][0].transcript.trim();
+      event.results[
+        event.results.length - 1
+      ][0]
+      .transcript
+      .trim();
+
 
     listening = false;
+
     orb.classList.remove("active");
 
+
     if (!text) {
-      restartAfterListening();
+
+      restartListening();
+
       return;
     }
 
-    console.log("Heard:", text);
 
-    // IMPORTANT:
-    // Ignore anything while MAX is speaking.
-    if (speaking || processing) {
-      return;
-    }
+    console.log(
+      "MAX heard:",
+      text
+    );
 
-    // WAKE WORD MODE
+
+    /* =========================
+       WAKE WORD MODE
+    ========================= */
+
     if (wakeMode) {
 
-      const lower = text.toLowerCase();
+      const lower =
+        text.toLowerCase();
+
 
       if (
         lower === "max" ||
         lower.includes("max")
       ) {
 
+        /*
+          MAX detected.
+          Stop recognition first.
+        */
+
+        stopRecognition();
+
         wakeMode = false;
 
-        setStatus("Haan boss...");
 
-        await speak("Haan boss.");
+        /*
+          Say Haan boss only once.
+        */
+
+        await speak(
+          "Haan boss."
+        );
+
+
+        /*
+          After speaking,
+          listen for command.
+        */
 
         if (maxRunning) {
+
           setTimeout(() => {
-            startCommandListening();
+
+            if (
+              maxRunning &&
+              !speaking &&
+              !processing
+            ) {
+
+              startCommandListening();
+
+            }
+
           }, 600);
         }
 
+
       } else {
 
-        restartAfterListening();
+        /*
+          MAX wasn't said.
+          Keep waiting.
+        */
+
+        wakeMode = true;
+
+        restartListening();
+      }
+
+
+      return;
+    }
+
+
+    /* =========================
+       COMMAND MODE
+    ========================= */
+
+    await sendMessage(text);
+
+  };
+
+
+  /* =========================
+     ON ERROR
+  ========================= */
+
+  recognition.onerror = (event) => {
+
+    console.log(
+      "Speech error:",
+      event.error
+    );
+
+
+    listening = false;
+
+    orb.classList.remove("active");
+
+
+    if (!maxRunning) return;
+
+
+    if (
+      event.error === "not-allowed" ||
+      event.error === "service-not-allowed"
+    ) {
+
+      setStatus(
+        "Microphone permission required."
+      );
+
+      return;
+    }
+
+
+    if (
+      event.error === "aborted"
+    ) {
+
+      /*
+        Aborted errors can happen normally
+        when we stop recognition before TTS.
+      */
+
+      if (
+        !speaking &&
+        !processing
+      ) {
+
+        restartListening();
       }
 
       return;
     }
 
-    // COMMAND MODE
-    await sendMessage(text);
+
+    restartListening();
   };
 
-  recognition.onerror = (event) => {
 
-    console.log("Speech error:", event.error);
-
-    listening = false;
-    orb.classList.remove("active");
-
-    if (!maxRunning) return;
-
-    if (event.error === "not-allowed") {
-      setStatus("Microphone permission required.");
-      return;
-    }
-
-    restartAfterListening();
-  };
+  /* =========================
+     ON END
+  ========================= */
 
   recognition.onend = () => {
 
     listening = false;
+
     orb.classList.remove("active");
+
 
     if (!maxRunning) return;
 
-    if (speaking || processing) return;
 
-    restartAfterListening();
+    /*
+      Never restart while MAX is talking
+      or processing a request.
+    */
+
+    if (speaking) return;
+
+    if (processing) return;
+
+
+    /*
+      If command finished,
+      ALWAYS return to wake mode.
+    */
+
+    if (!wakeMode) {
+
+      wakeMode = true;
+    }
+
+
+    setStatus("Say MAX...");
+
+
+    restartListening();
   };
 }
 
-function restartAfterListening() {
+
+/* =========================
+   RESTART LISTENING
+========================= */
+
+function restartListening() {
 
   if (!maxRunning) return;
+
   if (speaking) return;
+
   if (processing) return;
 
-  setTimeout(() => {
 
-    if (!maxRunning) return;
-    if (speaking || processing) return;
+  clearTimeout(restartTimer);
 
-    startRecognition();
 
-  }, 500);
+  restartTimer =
+    setTimeout(() => {
+
+      if (!maxRunning) return;
+
+      if (speaking) return;
+
+      if (processing) return;
+
+      if (listening) return;
+
+
+      startRecognition();
+
+    }, 800);
 }
+
+
+/* =========================
+   COMMAND LISTENING
+========================= */
 
 function startCommandListening() {
 
   if (!maxRunning) return;
 
+  if (speaking) return;
+
+  if (processing) return;
+
+
   wakeMode = false;
 
-  setStatus("Listening for your command...");
 
-  setTimeout(() => {
-    startRecognition();
-  }, 300);
+  setStatus(
+    "Listening for your command..."
+  );
+
+
+  clearTimeout(restartTimer);
+
+
+  restartTimer =
+    setTimeout(() => {
+
+      if (
+        maxRunning &&
+        !speaking &&
+        !processing &&
+        !listening
+      ) {
+
+        startRecognition();
+      }
+
+    }, 300);
 }
+
+
+/* =========================
+   SEND MESSAGE
+========================= */
 
 async function sendMessage(message) {
 
   if (!message) return;
+
   if (processing) return;
+
   if (speaking) return;
+
 
   processing = true;
 
+
   stopRecognition();
+
 
   setStatus("Thinking...");
 
+
   try {
 
-    const response = await fetch(
-      `${BACKEND}/chat`,
-      {
-        method: "POST",
+    const response =
+      await fetch(
+        `${BACKEND}/chat`,
+        {
+          method: "POST",
 
-        headers: {
-          "Content-Type": "application/json"
-        },
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
 
-        body: JSON.stringify({
-          message: message
-        })
-      }
-    );
+          body: JSON.stringify({
+            message: message
+          })
+        }
+      );
 
-    const data = await response.json();
+
+    const data =
+      await response.json();
+
 
     if (!response.ok) {
-      throw new Error(data.error || "Server error");
+
+      throw new Error(
+        data.error ||
+        "Server error"
+      );
     }
 
-    let reply = cleanSpeech(data.reply);
 
-    // Prevent duplicate response loop
-    const now = Date.now();
+    let reply =
+      cleanSpeech(data.reply);
+
+
+    if (!reply) {
+
+      reply =
+        "Sorry boss, mujhe samajh nahi aaya.";
+    }
+
+
+    /* =========================
+       DUPLICATE PROTECTION
+    ========================= */
+
+    const now =
+      Date.now();
+
 
     if (
       reply === lastReply &&
@@ -399,168 +712,358 @@ async function sendMessage(message) {
     ) {
 
       processing = false;
+
       wakeMode = true;
 
       setStatus("Say MAX...");
 
-      restartAfterListening();
+      restartListening();
 
       return;
     }
 
+
     lastReply = reply;
+
     lastReplyTime = now;
 
-    replyBox.textContent = reply;
+
+    replyBox.textContent =
+      reply;
+
+
+    /*
+      Processing finished BEFORE TTS.
+    */
 
     processing = false;
 
-    // MAX speaks ONLY once
+
+    /*
+      MAX speaks once.
+    */
+
     await speak(reply);
 
-    // Return to wake-word mode
+
+    /*
+      IMPORTANT:
+      After every answer,
+      go back to wake-word mode.
+    */
+
     wakeMode = true;
+
 
     if (maxRunning) {
 
-      setStatus("Say MAX...");
+      setStatus(
+        "Say MAX..."
+      );
+
 
       setTimeout(() => {
 
-        if (!speaking && !processing) {
+        if (
+          maxRunning &&
+          !speaking &&
+          !processing &&
+          !listening
+        ) {
+
           startRecognition();
         }
 
-      }, 800);
+      }, 900);
     }
+
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      "MAX error:",
+      error
+    );
+
 
     processing = false;
+
+    wakeMode = true;
+
 
     replyBox.textContent =
       "MAX connection error.";
 
-    setStatus("Say MAX...");
 
-    wakeMode = true;
+    setStatus(
+      "Say MAX..."
+    );
 
-    restartAfterListening();
+
+    restartListening();
   }
 }
+
+
+/* =========================
+   TEXT TO SPEECH
+========================= */
 
 function speak(text) {
 
   return new Promise((resolve) => {
 
     if (!text) {
+
       resolve();
+
       return;
     }
 
-    // STOP microphone BEFORE TTS
+
+    /*
+      STOP MICROPHONE
+      BEFORE MAX SPEAKS.
+    */
+
     stopRecognition();
+
 
     speaking = true;
 
-    setStatus("MAX speaking...");
+
+    setStatus(
+      "MAX speaking..."
+    );
+
 
     window.speechSynthesis.cancel();
 
-    const utterance =
-      new SpeechSynthesisUtterance(text);
 
-    utterance.lang =
+    const utterance =
+      new SpeechSynthesisUtterance(
+        text
+      );
+
+
+    /*
+      Better language selection.
+    */
+
+    if (
       /[\u0900-\u097F]/.test(text)
-        ? "hi-IN"
-        : "en-IN";
+    ) {
+
+      utterance.lang =
+        "hi-IN";
+
+    } else {
+
+      utterance.lang =
+        "en-IN";
+    }
+
 
     utterance.rate = 1;
+
     utterance.pitch = 1;
 
-    utterance.onend = () => {
+
+    let finished = false;
+
+
+    function finishSpeaking() {
+
+      if (finished) return;
+
+      finished = true;
 
       speaking = false;
 
-      // Small delay prevents MAX from hearing
-      // the last part of its own voice.
+
+      /*
+        Small safety delay so MAX
+        doesn't hear its own final words.
+      */
+
       setTimeout(() => {
 
         resolve();
 
       }, 500);
-    };
+    }
 
-    utterance.onerror = () => {
 
-      speaking = false;
+    utterance.onend =
+      finishSpeaking;
 
-      setTimeout(() => {
-        resolve();
-      }, 500);
-    };
 
-    window.speechSynthesis.speak(utterance);
+    utterance.onerror =
+      finishSpeaking;
+
+
+    window.speechSynthesis.speak(
+      utterance
+    );
+
   });
 }
 
+
+/* =========================
+   START MAX
+========================= */
+
 startBtn.onclick = () => {
 
-  if (!SpeechRecognition) return;
+  if (!SpeechRecognition) {
+
+    setStatus(
+      "Voice recognition is not supported in this browser."
+    );
+
+    return;
+  }
+
+
+  /*
+    Clear any old state.
+  */
+
+  clearTimeout(restartTimer);
+
 
   maxRunning = true;
+
   speaking = false;
+
   processing = false;
+
+  listening = false;
+
   wakeMode = true;
+
 
   replyBox.textContent = "";
 
-  setStatus("Say MAX...");
+
+  setStatus(
+    "Say MAX..."
+  );
+
+
+  /*
+    Create fresh recognition.
+  */
+
+  if (recognition) {
+
+    try {
+      recognition.abort();
+    } catch (e) {}
+
+  }
+
+
+  recognition = null;
+
 
   createRecognition();
 
   startRecognition();
 };
 
+
+/* =========================
+   STOP MAX
+========================= */
+
 stopBtn.onclick = () => {
 
   maxRunning = false;
 
   speaking = false;
+
   processing = false;
+
   listening = false;
+
+  wakeMode = true;
+
+
+  clearTimeout(
+    restartTimer
+  );
+
 
   stopRecognition();
 
+
   window.speechSynthesis.cancel();
 
-  orb.classList.remove("active");
 
-  setStatus("MAX is sleeping");
+  orb.classList.remove(
+    "active"
+  );
+
+
+  setStatus(
+    "MAX is sleeping"
+  );
 };
+
+
+/* =========================
+   TYPED MESSAGE
+========================= */
 
 async function sendTypedMessage() {
 
-  const message = input.value.trim();
+  const message =
+    input.value.trim();
+
 
   if (!message) return;
 
+
   input.value = "";
 
-  await sendMessage(message);
+
+  await sendMessage(
+    message
+  );
 }
 
-sendBtn.onclick = sendTypedMessage;
 
-input.addEventListener("keydown", (event) => {
+sendBtn.onclick =
+  sendTypedMessage;
 
-  if (event.key === "Enter") {
-    sendTypedMessage();
+
+input.addEventListener(
+  "keydown",
+  (event) => {
+
+    if (
+      event.key === "Enter"
+    ) {
+
+      sendTypedMessage();
+    }
+
   }
+);
 
-});
+
+/* =========================
+   BROWSER CHECK
+========================= */
+
+if (!SpeechRecognition) {
+
+  setStatus(
+    "Voice recognition is not supported in this browser."
+  );
+}
 
 </script>
 
