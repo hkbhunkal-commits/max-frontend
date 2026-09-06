@@ -1,297 +1,634 @@
-const express = require("express");
-const cors = require("cors");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAX AI</title>
 
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-
-const MEMORY_API =
-  "https://max-memory-api.hkbhunkal.workers.dev";
-
-
-// =========================
-// HOME
-// =========================
-
-app.get("/", (req, res) => {
-  res.send("MAX backend is running.");
-});
-
-
-// =========================
-// TEST
-// =========================
-
-app.get("/test", (req, res) => {
-  res.json({
-    status: "OK",
-    message: "MAX backend connection is working!"
-  });
-});
-
-
-// =========================
-// GET MEMORIES
-// =========================
-
-async function getMemories() {
-  try {
-    const response = await fetch(
-      `${MEMORY_API}/memories?user_id=default`
-    );
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      return [];
+  <style>
+    * {
+      box-sizing: border-box;
     }
 
-    return data.memories || [];
-
-  } catch (error) {
-    console.error("Memory read error:", error);
-    return [];
-  }
-}
-
-
-// =========================
-// SAVE MEMORY
-// =========================
-
-async function saveMemory(memory) {
-  try {
-    const response = await fetch(
-      `${MEMORY_API}/remember`,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json"
-        },
-
-        body: JSON.stringify({
-          user_id: "default",
-          memory: memory
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    return response.ok && data.success;
-
-  } catch (error) {
-    console.error("Memory save error:", error);
-    return false;
-  }
-}
-
-
-// =========================
-// CHAT
-// =========================
-
-app.post("/chat", async (req, res) => {
-
-  try {
-
-    const message = req.body.message;
-
-    if (!message) {
-      return res.status(400).json({
-        error: "Message is required."
-      });
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0b0f14;
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
-
-    if (!ACCOUNT_ID || !API_TOKEN) {
-      return res.status(500).json({
-        error: "Cloudflare credentials are missing."
-      });
+    .app {
+      width: 92%;
+      max-width: 500px;
+      text-align: center;
     }
+
+    h1 {
+      font-size: 42px;
+      margin-bottom: 5px;
+    }
+
+    .status {
+      color: #aaa;
+      margin-bottom: 25px;
+    }
+
+    .orb {
+      width: 150px;
+      height: 150px;
+      margin: 20px auto;
+      border-radius: 50%;
+      background: radial-gradient(circle, #5ee7ff, #1769ff, #10152b);
+      box-shadow: 0 0 50px #1769ff;
+    }
+
+    .active {
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    button {
+      border: none;
+      border-radius: 25px;
+      padding: 14px 25px;
+      margin: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #startBtn {
+      background: #1769ff;
+      color: white;
+    }
+
+    #stopBtn {
+      background: #333;
+      color: white;
+    }
+
+    .box {
+      margin-top: 25px;
+      padding: 18px;
+      background: #151a22;
+      border-radius: 15px;
+      text-align: left;
+      min-height: 100px;
+    }
+
+    .label {
+      color: #777;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    #reply {
+      line-height: 1.5;
+    }
+
+    .inputArea {
+      display: flex;
+      margin-top: 15px;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 14px;
+      border-radius: 25px;
+      border: none;
+      outline: none;
+      font-size: 15px;
+    }
+
+    #sendBtn {
+      background: #1769ff;
+      color: white;
+      margin: 0;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <h1>MAX</h1>
+
+  <div class="status" id="status">
+    Press START MAX
+  </div>
+
+  <div class="orb" id="orb"></div>
+
+  <button id="startBtn">START MAX</button>
+  <button id="stopBtn">STOP</button>
+
+  <div class="box">
+    <div class="label">YOU</div>
+    <div id="userText">—</div>
+
+    <br>
+
+    <div class="label">MAX</div>
+    <div id="reply">—</div>
+  </div>
+
+  <div class="inputArea">
+    <input
+      id="textInput"
+      type="text"
+      placeholder="Type to MAX..."
+    >
+
+    <button id="sendBtn">Send</button>
+  </div>
+
+</div>
+
+
+<script>
+
+const BACKEND =
+  "https://max-backend-u4r6.onrender.com/chat";
+
+
+const statusText =
+  document.getElementById("status");
+
+const orb =
+  document.getElementById("orb");
+
+const userText =
+  document.getElementById("userText");
+
+const replyText =
+  document.getElementById("reply");
+
+const startBtn =
+  document.getElementById("startBtn");
+
+const stopBtn =
+  document.getElementById("stopBtn");
+
+const textInput =
+  document.getElementById("textInput");
+
+const sendBtn =
+  document.getElementById("sendBtn");
+
+
+let recognition = null;
+
+let running = false;
+
+let listeningForCommand = false;
+
+let speaking = false;
+
+
+// =========================
+// SPEECH RECOGNITION
+// =========================
+
+const SpeechRecognition =
+  window.SpeechRecognition ||
+  window.webkitSpeechRecognition;
+
+
+if (SpeechRecognition) {
+
+  recognition = new SpeechRecognition();
+
+  recognition.continuous = false;
+
+  recognition.interimResults = false;
+
+  recognition.lang = "en-IN";
+
+
+  recognition.onstart = () => {
+
+    if (!running) return;
+
+    statusText.textContent =
+      listeningForCommand
+        ? "Listening to your command..."
+        : "Say MAX...";
+
+    orb.classList.add("active");
+  };
+
+
+  recognition.onresult = async (event) => {
+
+    const text =
+      event.results[0][0].transcript.trim();
+
+    if (!text) return;
+
+
+    userText.textContent = text;
 
 
     // =========================
-    // REMEMBER COMMAND
+    // WAKE WORD
     // =========================
 
-    const lowerMessage = message.toLowerCase();
+    if (!listeningForCommand) {
 
-    if (
-      lowerMessage.startsWith("remember ") ||
-      lowerMessage.startsWith("remember that ")
-    ) {
+      const lower =
+        text.toLowerCase();
 
-      let memory = message
-        .replace(/^remember that /i, "")
-        .replace(/^remember /i, "")
-        .trim();
+      if (
+        lower === "max" ||
+        lower.startsWith("max ")
+      ) {
 
-      if (memory) {
+        listeningForCommand = true;
 
-        const saved = await saveMemory(memory);
+        recognition.stop();
 
-        if (saved) {
+        await speak("Haan boss.");
 
-          return res.json({
-            reply: "Okay bro, I'll remember that."
-          });
+        if (running) {
+
+          setTimeout(() => {
+
+            startListening();
+
+          }, 300);
 
         }
+
       }
+
+      return;
     }
 
 
     // =========================
-    // LOAD MEMORIES
+    // COMMAND
     // =========================
 
-    const memories = await getMemories();
+    listeningForCommand = false;
 
-    let memoryText = "No saved memories.";
+    recognition.stop();
 
-    if (memories.length > 0) {
+    await askMAX(text);
 
-      memoryText = memories
-        .map((item) => `- ${item.memory}`)
-        .join("\n");
+  };
+
+
+  recognition.onerror = (event) => {
+
+    console.log(
+      "Speech error:",
+      event.error
+    );
+
+    if (!running) return;
+
+    if (event.error === "not-allowed") {
+
+      statusText.textContent =
+        "Microphone permission required.";
+
+      return;
+    }
+
+    setTimeout(() => {
+
+      if (running && !speaking) {
+        startListening();
+      }
+
+    }, 700);
+
+  };
+
+
+  recognition.onend = () => {
+
+    orb.classList.remove("active");
+
+    if (
+      running &&
+      !speaking
+    ) {
+
+      setTimeout(() => {
+
+        startListening();
+
+      }, 400);
+
+    }
+
+  };
+
+}
+
+
+// =========================
+// START LISTENING
+// =========================
+
+function startListening() {
+
+  if (!recognition) {
+
+    statusText.textContent =
+      "Speech recognition is not supported in this browser.";
+
+    return;
+  }
+
+  if (!running || speaking) return;
+
+
+  try {
+
+    recognition.start();
+
+  } catch (error) {
+
+    console.log(error);
+
+  }
+
+}
+
+
+// =========================
+// SPEAK
+// =========================
+
+function speak(text) {
+
+  return new Promise((resolve) => {
+
+    if (!("speechSynthesis" in window)) {
+
+      resolve();
+
+      return;
+    }
+
+
+    speechSynthesis.cancel();
+
+    speaking = true;
+
+    statusText.textContent =
+      "MAX is speaking...";
+
+
+    // Remove markdown
+    let clean =
+      text
+        .replace(/\*\*/g, "")
+        .replace(/\*/g, "")
+        .replace(/__/g, "")
+        .replace(/_/g, "")
+        .replace(/`/g, "")
+        .replace(/#{1,6}\s?/g, "")
+        .replace(/\n+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+
+    // Remove emojis
+    clean =
+      clean.replace(
+        /[\u{1F300}-\u{1FAFF}]/gu,
+        ""
+      );
+
+
+    const utterance =
+      new SpeechSynthesisUtterance(clean);
+
+
+    // Hindi / Hinglish voice
+    if (/[\u0900-\u097F]/.test(clean)) {
+
+      utterance.lang = "hi-IN";
+
+    } else {
+
+      utterance.lang = "en-IN";
 
     }
 
 
-    // =========================
-    // MAX AI PROMPT
-    // =========================
+    utterance.rate = 1.05;
 
-    const prompt =
-`You are MAX, a natural conversational AI phone assistant.
-
-IMPORTANT LANGUAGE RULES:
-
-Always reply in the SAME language and style used by the user.
-
-If the user speaks Hinglish, reply naturally in Hinglish.
-Do NOT translate Hinglish into pure Hindi or pure English.
-
-If the user speaks Hindi, reply in Hindi.
-
-If the user speaks English, reply in English.
-
-If the user mixes Hindi and English, keep the same natural Hindi-English mix.
-
-Never provide a translation unless the user specifically asks for one.
-
-Never say things like:
-"Here is the Hindi translation."
-"Here is the English translation."
-"Translation:"
-or anything similar.
-
-Understand informal spelling, slang and casual speech naturally.
-
-For voice conversations, answer naturally like a phone assistant.
-
-Keep normal replies SHORT.
-Usually answer in 1 or 2 sentences.
-
-Do not give long explanations unless the user specifically asks for a detailed explanation.
-
-Do not use markdown, headings, bullet points, unnecessary formatting or emojis in normal conversation.
-
-These are MAX's saved memories about the user:
-
-${memoryText}
-
-Use memories only when relevant.
-Do not mention the memory system unless the user asks.
-
-User:
-${message}`;
+    utterance.pitch = 1;
 
 
-    // =========================
-    // CLOUDFLARE AI
-    // =========================
+    utterance.onend = () => {
 
-    const response = await fetch(
+      speaking = false;
 
-      `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai/run/@cf/meta/llama-3.1-8b-instruct`,
+      statusText.textContent =
+        running
+          ? "Say MAX..."
+          : "MAX stopped";
 
-      {
+      resolve();
+
+    };
+
+
+    utterance.onerror = () => {
+
+      speaking = false;
+
+      resolve();
+
+    };
+
+
+    speechSynthesis.speak(
+      utterance
+    );
+
+  });
+
+}
+
+
+// =========================
+// ASK MAX
+// =========================
+
+async function askMAX(message) {
+
+  statusText.textContent =
+    "Thinking...";
+
+  orb.classList.add("active");
+
+
+  try {
+
+    const response =
+      await fetch(BACKEND, {
+
         method: "POST",
 
         headers: {
-          "Authorization": `Bearer ${API_TOKEN}`,
           "Content-Type": "application/json"
         },
 
         body: JSON.stringify({
-          prompt: prompt
+          message: message
         })
-      }
 
-    );
-
-
-    const data = await response.json();
-
-
-    if (!response.ok || !data.success) {
-
-      console.error(
-        "Cloudflare AI Error:",
-        data
-      );
-
-      return res.status(500).json({
-        error:
-          "MAX could not get a response from Cloudflare AI."
       });
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.error ||
+        "MAX error"
+      );
 
     }
 
 
-    // =========================
-    // SEND REPLY
-    // =========================
+    const reply =
+      data.reply || "Sorry bro.";
 
-    res.json({
-      reply: data.result.response
-    });
+
+    replyText.textContent =
+      reply;
+
+
+    await speak(reply);
 
 
   } catch (error) {
 
-    console.error(
-      "Server Error:",
-      error
-    );
+    console.error(error);
 
-    res.status(500).json({
-      error: "MAX server error."
-    });
+    const errorMessage =
+      "Sorry bro, connection problem hai.";
+
+    replyText.textContent =
+      errorMessage;
+
+    await speak(errorMessage);
 
   }
 
-});
+}
 
 
 // =========================
-// START SERVER
+// START BUTTON
 // =========================
 
-const PORT =
-  process.env.PORT || 3000;
+startBtn.onclick = () => {
 
-app.listen(PORT, () => {
+  running = true;
 
-  console.log(
-    `MAX backend running on port ${PORT}`
-  );
+  listeningForCommand = false;
 
-});
+  statusText.textContent =
+    "Say MAX...";
+
+  startListening();
+
+};
+
+
+// =========================
+// STOP BUTTON
+// =========================
+
+stopBtn.onclick = () => {
+
+  running = false;
+
+  listeningForCommand = false;
+
+  speaking = false;
+
+
+  if (recognition) {
+
+    try {
+      recognition.stop();
+    } catch (e) {}
+
+  }
+
+
+  speechSynthesis.cancel();
+
+
+  orb.classList.remove("active");
+
+  statusText.textContent =
+    "MAX stopped";
+
+};
+
+
+// =========================
+// TEXT SEND
+// =========================
+
+sendBtn.onclick = async () => {
+
+  const message =
+    textInput.value.trim();
+
+
+  if (!message) return;
+
+
+  userText.textContent =
+    message;
+
+
+  textInput.value = "";
+
+
+  await askMAX(message);
+
+};
+
+
+textInput.addEventListener(
+  "keydown",
+  (event) => {
+
+    if (event.key === "Enter") {
+
+      sendBtn.click();
+
+    }
+
+  }
+);
+
+</script>
+
+</body>
+</html>
