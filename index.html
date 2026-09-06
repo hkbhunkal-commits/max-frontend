@@ -1,453 +1,488 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MAX AI</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MAX AI</title>
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: #080808;
-      color: white;
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .app {
-      width: 100%;
-      max-width: 500px;
-      padding: 25px;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 55px;
-      margin: 10px 0;
-      letter-spacing: 5px;
-    }
-
-    .status {
-      margin: 15px 0;
-      color: #aaa;
-      min-height: 24px;
-    }
-
-    .orb {
-      width: 170px;
-      height: 170px;
-      margin: 30px auto;
-      border-radius: 50%;
-      background: radial-gradient(circle, #444, #111 65%, #000);
-      box-shadow: 0 0 40px #222;
-      transition: 0.3s;
-    }
-
-    .orb.active {
-      box-shadow: 0 0 60px #777;
-      transform: scale(1.05);
-    }
-
-    button {
-      border: none;
-      border-radius: 30px;
-      padding: 14px 28px;
-      font-size: 17px;
-      margin: 8px;
-      cursor: pointer;
-      background: white;
-      color: black;
-    }
-
-    input {
-      width: 90%;
-      padding: 14px;
-      border-radius: 25px;
-      border: 1px solid #444;
-      background: #151515;
-      color: white;
-      outline: none;
-      font-size: 16px;
-    }
-
-    .reply {
-      margin-top: 25px;
-      min-height: 50px;
-      font-size: 18px;
-      line-height: 1.5;
-    }
-  </style>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  min-height:100vh;
+  background:#080808;
+  color:white;
+  font-family:Arial,sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+.app{
+  width:100%;
+  max-width:500px;
+  padding:25px;
+  text-align:center;
+}
+h1{
+  font-size:55px;
+  margin:10px 0;
+  letter-spacing:5px;
+}
+.status{
+  color:#aaa;
+  min-height:24px;
+}
+.orb{
+  width:170px;
+  height:170px;
+  margin:30px auto;
+  border-radius:50%;
+  background:radial-gradient(circle,#444,#111 65%,#000);
+  box-shadow:0 0 40px #222;
+  transition:.2s;
+}
+.orb.active{
+  box-shadow:0 0 65px #888;
+  transform:scale(1.05);
+}
+button{
+  border:0;
+  border-radius:30px;
+  padding:14px 28px;
+  font-size:17px;
+  margin:8px;
+  cursor:pointer;
+}
+input{
+  width:90%;
+  padding:14px;
+  border-radius:25px;
+  border:1px solid #444;
+  background:#151515;
+  color:white;
+  font-size:16px;
+  outline:none;
+}
+.reply{
+  margin-top:25px;
+  min-height:50px;
+  font-size:18px;
+  line-height:1.5;
+}
+</style>
 </head>
 
 <body>
 
 <div class="app">
 
-  <h1>MAX</h1>
+<h1>MAX</h1>
 
-  <div id="status" class="status">
-    Press START MAX
-  </div>
+<div id="status" class="status">Press START MAX</div>
 
-  <div id="orb" class="orb"></div>
+<div id="orb" class="orb"></div>
 
-  <button id="startBtn">START MAX</button>
+<button id="startBtn">START MAX</button>
 
-  <div>
-    <input
-      id="textInput"
-      type="text"
-      placeholder="Type something..."
-    >
-    <button id="sendBtn">SEND</button>
-  </div>
+<div>
+<input id="textInput" placeholder="Type something...">
+<button id="sendBtn">SEND</button>
+</div>
 
-  <div id="reply" class="reply"></div>
+<div id="reply" class="reply"></div>
 
 </div>
 
 <script>
 
-const BACKEND = "https://max-backend-u4r6.onrender.com";
+const BACKEND =
+"https://max-backend-u4r6.onrender.com";
 
 let recognition = null;
 
 let maxRunning = false;
+let conversationMode = false;
+
 let listening = false;
 let speaking = false;
 let processing = false;
 
-let conversationMode = false;
-
-let silenceTimer = null;
 let restartTimer = null;
+let silenceTimer = null;
 
 
-/* ---------------- STATUS ---------------- */
+/* =========================
+   UI
+========================= */
 
-function setStatus(text) {
+function status(text){
   document.getElementById("status").textContent = text;
 }
 
-
-/* ---------------- ORB ---------------- */
-
-function setOrb(active) {
-  document.getElementById("orb").classList.toggle("active", active);
+function orb(on){
+  document
+    .getElementById("orb")
+    .classList.toggle("active",on);
 }
 
 
-/* ---------------- SPEAK ---------------- */
+/* =========================
+   CLEAN SPEECH
+========================= */
 
-function speak(text) {
+function cleanSpeech(text){
 
-  if (!text) {
-    startListening();
+  if(!text) return "";
+
+  let t = text;
+
+  // Remove markdown
+  t = t.replace(/[*_#`~]/g,"");
+
+  // Remove brackets
+  t = t.replace(/[()[\]{}]/g," ");
+
+  // Remove punctuation that TTS may speak
+  t = t.replace(/[.,!?;:]/g," ");
+
+  // Remove symbols
+  t = t.replace(/[\/\\|<>+=@#$%^&]/g," ");
+
+  // Multiple spaces
+  t = t.replace(/\s+/g," ").trim();
+
+  return t;
+}
+
+
+/* =========================
+   STOP RECOGNITION
+========================= */
+
+function stopRecognition(){
+
+  if(!recognition) return;
+
+  try{
+    recognition.abort();
+  }catch(e){}
+
+  listening=false;
+}
+
+
+/* =========================
+   SPEAK
+========================= */
+
+function speak(text){
+
+  if(!maxRunning) return;
+
+  const clean = cleanSpeech(text);
+
+  if(!clean){
+    speaking=false;
+
+    if(maxRunning && conversationMode)
+      startListening();
+
     return;
   }
 
-  speaking = true;
-  listening = false;
+  /*
+    VERY IMPORTANT:
+    microphone OFF while MAX speaks.
+    This prevents MAX hearing itself.
+  */
 
   stopRecognition();
 
-  setOrb(true);
-  setStatus("MAX बोल रहा है...");
+  clearTimeout(restartTimer);
+  clearTimeout(silenceTimer);
+
+  speaking=true;
+
+  orb(true);
+  status("MAX बोल रहा है...");
 
   window.speechSynthesis.cancel();
 
-  const utterance = new SpeechSynthesisUtterance(text);
+  const u =
+    new SpeechSynthesisUtterance(clean);
 
-  // Hindi/Hinglish detection
-  const hindiPattern =
-    /[\u0900-\u097F]|hai|haan|boss|bro|kaise|kya|mujhe|aap|mera|meri|ye|yeh|nahi|nahin|kr|kar|bata|bta|acha|achha|hoga|chahiye/i;
+  /*
+    Detect Hindi/Hinglish.
+  */
 
-  if (hindiPattern.test(text)) {
-    utterance.lang = "hi-IN";
-  } else {
-    utterance.lang = "en-IN";
+  const hindi =
+    /[\u0900-\u097F]|hai|haan|boss|bro|kaise|kya|mujhe|aap|mera|meri|nahi|nahin|bata|bta|acha|achha|kr|kar|hoga|chahiye/i;
+
+  if(hindi.test(clean)){
+    u.lang="hi-IN";
+  }else{
+    u.lang="en-IN";
   }
 
-  utterance.rate = 0.95;
-  utterance.pitch = 1;
+  u.rate=.9;
+  u.pitch=1;
 
-  const voices = window.speechSynthesis.getVoices();
+  const voices =
+    window.speechSynthesis.getVoices();
 
-  let selectedVoice = null;
+  let voice=null;
 
-  if (utterance.lang === "hi-IN") {
-    selectedVoice =
-      voices.find(v => v.lang === "hi-IN") ||
-      voices.find(v => v.lang.startsWith("hi"));
-  } else {
-    selectedVoice =
-      voices.find(v => v.lang === "en-IN") ||
-      voices.find(v => v.lang.startsWith("en"));
+  if(u.lang==="hi-IN"){
+    voice =
+      voices.find(v=>v.lang==="hi-IN") ||
+      voices.find(v=>v.lang.startsWith("hi"));
+  }else{
+    voice =
+      voices.find(v=>v.lang==="en-IN") ||
+      voices.find(v=>v.lang.startsWith("en-IN")) ||
+      voices.find(v=>v.lang.startsWith("en"));
   }
 
-  if (selectedVoice) {
-    utterance.voice = selectedVoice;
-  }
+  if(voice)
+    u.voice=voice;
 
-  utterance.onend = function () {
 
-    speaking = false;
-    setOrb(false);
+  u.onend=function(){
 
-    // IMPORTANT:
-    // Conversation mode stays ON after every answer.
-    if (maxRunning && conversationMode) {
-      setStatus("Listening...");
-      startListening();
-    } else if (maxRunning) {
-      setStatus("Say MAX...");
+    speaking=false;
+
+    orb(false);
+
+    /*
+      NEVER leave conversation mode
+      after an answer.
+    */
+
+    if(maxRunning && conversationMode){
+
+      status("Listening...");
+
       startListening();
     }
   };
 
-  utterance.onerror = function () {
 
-    speaking = false;
-    setOrb(false);
+  u.onerror=function(){
 
-    if (maxRunning) {
+    speaking=false;
+
+    orb(false);
+
+    if(maxRunning && conversationMode)
       startListening();
-    }
   };
 
-  window.speechSynthesis.speak(utterance);
+
+  window.speechSynthesis.speak(u);
 }
 
 
-/* ---------------- STOP RECOGNITION ---------------- */
+/* =========================
+   CREATE SPEECH RECOGNITION
+========================= */
 
-function stopRecognition() {
+function createRecognition(){
 
-  if (!recognition) return;
-
-  try {
-    recognition.abort();
-  } catch (e) {}
-
-  listening = false;
-}
-
-
-/* ---------------- START RECOGNITION ---------------- */
-
-function startListening() {
-
-  if (!maxRunning) return;
-  if (speaking) return;
-  if (processing) return;
-  if (listening) return;
-
-  if (!recognition) {
-    createRecognition();
-  }
-
-  clearTimeout(restartTimer);
-
-  restartTimer = setTimeout(() => {
-
-    if (!maxRunning) return;
-    if (speaking) return;
-    if (processing) return;
-    if (listening) return;
-
-    try {
-      recognition.start();
-    } catch (e) {}
-
-  }, 300);
-
-}
-
-
-/* ---------------- RECOGNITION ---------------- */
-
-function createRecognition() {
-
-  const SpeechRecognition =
+  const SR =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
 
-  if (!SpeechRecognition) {
+  if(!SR){
 
-    setStatus(
-      "Speech recognition supported nahi hai. Chrome use karo."
-    );
-
+    status("Chrome speech recognition required.");
     return;
   }
 
-  recognition = new SpeechRecognition();
+  recognition=new SR();
 
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  recognition.continuous=false;
+  recognition.interimResults=false;
 
-  // Indian English works well for Hinglish
-  recognition.lang = "en-IN";
+  recognition.lang="en-IN";
 
 
-  recognition.onstart = function () {
+  recognition.onstart=function(){
 
-    listening = true;
+    listening=true;
 
-    setOrb(true);
+    orb(true);
 
-    if (conversationMode) {
-      setStatus("Listening...");
-    } else {
-      setStatus("Say MAX...");
-    }
+    if(conversationMode)
+      status("Listening...");
+    else
+      status("Say MAX...");
 
     startSilenceTimer();
   };
 
 
-  recognition.onresult = async function(event) {
+  recognition.onresult=async function(event){
 
-    clearSilenceTimer();
+    clearTimeout(silenceTimer);
 
-    listening = false;
+    listening=false;
 
     const text =
-      event.results[event.results.length - 1][0].transcript.trim();
+      event.results[
+        event.results.length-1
+      ][0].transcript.trim();
 
-    if (!text) {
+    if(!text){
+
       startListening();
       return;
     }
 
-    console.log("Heard:", text);
+    console.log("MAX heard:",text);
 
-    await handleVoice(text);
+    await processVoice(text);
   };
 
 
-  recognition.onerror = function(event) {
+  recognition.onerror=function(event){
 
-    console.log("Speech error:", event.error);
+    console.log(
+      "Recognition:",
+      event.error
+    );
 
-    listening = false;
+    listening=false;
 
-    clearSilenceTimer();
+    clearTimeout(silenceTimer);
 
-    if (!maxRunning || speaking || processing) {
-      return;
+    /*
+      IMPORTANT:
+      Speech errors must NOT reset
+      conversation mode.
+    */
+
+    if(
+      maxRunning &&
+      !speaking &&
+      !processing
+    ){
+      startListening();
     }
+  };
 
-    // Don't exit conversation mode on normal speech errors.
+
+  recognition.onend=function(){
+
+    listening=false;
+
+    clearTimeout(silenceTimer);
+
+    if(!maxRunning) return;
+    if(speaking) return;
+    if(processing) return;
+
+    /*
+      Keep listening automatically.
+    */
+
     startListening();
   };
-
-
-  recognition.onend = function() {
-
-    listening = false;
-
-    clearSilenceTimer();
-
-    if (!maxRunning) return;
-    if (speaking) return;
-    if (processing) return;
-
-    // VERY IMPORTANT:
-    // If conversation mode is ON,
-    // immediately listen again.
-    if (conversationMode) {
-      setStatus("Listening...");
-      startListening();
-    } else {
-      setStatus("Say MAX...");
-      startListening();
-    }
-  };
-
 }
 
 
-/* ---------------- SILENCE TIMER ---------------- */
+/* =========================
+   START LISTENING
+========================= */
 
-function startSilenceTimer() {
+function startListening(){
 
-  clearSilenceTimer();
+  if(!maxRunning) return;
+  if(speaking) return;
+  if(processing) return;
+  if(listening) return;
 
-  silenceTimer = setTimeout(() => {
+  if(!recognition)
+    createRecognition();
 
-    if (!maxRunning) return;
-    if (speaking || processing) return;
+  clearTimeout(restartTimer);
 
-    // Only leave conversation mode after
-    // 12 seconds of complete silence.
-    conversationMode = false;
+  restartTimer=setTimeout(()=>{
 
-    setStatus("Say MAX...");
+    if(!maxRunning) return;
+    if(speaking) return;
+    if(processing) return;
+    if(listening) return;
 
-  }, 12000);
+    try{
+      recognition.start();
+    }catch(e){}
+
+  },350);
 }
 
 
-function clearSilenceTimer() {
+/* =========================
+   SILENCE
+========================= */
 
-  if (silenceTimer) {
-    clearTimeout(silenceTimer);
-    silenceTimer = null;
-  }
+function startSilenceTimer(){
 
+  clearTimeout(silenceTimer);
+
+  silenceTimer=setTimeout(()=>{
+
+    if(!maxRunning) return;
+    if(speaking || processing) return;
+
+    /*
+      Only after 12 seconds of silence
+      return to wake-word mode.
+    */
+
+    conversationMode=false;
+
+    status("Say MAX...");
+
+  },12000);
 }
 
 
-/* ---------------- VOICE HANDLER ---------------- */
+/* =========================
+   VOICE PROCESSING
+========================= */
 
-async function handleVoice(text) {
+async function processVoice(text){
 
-  clearSilenceTimer();
+  clearTimeout(silenceTimer);
 
-  setOrb(false);
-
-  const lower = text.toLowerCase().trim();
+  orb(false);
 
 
   /*
-    WAKE WORD MODE
-
-    If conversation mode is OFF,
-    MAX requires "MAX" / "Hello MAX".
+    WAKE MODE
   */
 
-  if (!conversationMode) {
+  if(!conversationMode){
 
-    const wakeWords = [
-      "max",
-      "hello max",
-      "hey max",
-      "hello max."
-    ];
+    const lower=text.toLowerCase();
 
-    const containsWakeWord =
-      wakeWords.some(word => lower.includes(word));
+    const wake =
+      lower.includes("max") ||
+      lower.includes("hello max") ||
+      lower.includes("hey max");
 
-    if (!containsWakeWord) {
+    if(!wake){
 
-      // Ignore random speech while waiting for MAX.
       startListening();
-
       return;
     }
 
-    // Wake word detected.
-    conversationMode = true;
+    /*
+      Wake word detected.
+      Enter conversation mode.
+    */
 
-    setStatus("Haan boss.");
+    conversationMode=true;
 
     speak("Haan boss.");
 
@@ -458,212 +493,182 @@ async function handleVoice(text) {
   /*
     CONVERSATION MODE
 
-    Here MAX DOES NOT require wake word.
-
-    Example:
-
-    Hello MAX
-    → Haan boss.
-
-    Capital of USA?
-    → Washington, D.C.
-
-    Capital of India?
-    → New Delhi
-
-    No "MAX" needed.
+    No MAX required.
   */
 
-  await sendToBackend(text);
-
+  await askMAX(text);
 }
 
 
-/* ---------------- BACKEND ---------------- */
+/* =========================
+   ASK BACKEND
+========================= */
 
-async function sendToBackend(message) {
+async function askMAX(message){
 
-  if (!message) return;
+  if(!message) return;
 
-  processing = true;
+  processing=true;
 
   stopRecognition();
 
-  setOrb(true);
-  setStatus("Thinking...");
-
-  document.getElementById("reply").textContent = "";
+  orb(true);
+  status("Thinking...");
 
 
-  try {
+  try{
 
-    const response = await fetch(
-      `${BACKEND}/chat`,
-      {
-        method: "POST",
+    const response =
+      await fetch(
+        BACKEND + "/chat",
+        {
+          method:"POST",
 
-        headers: {
-          "Content-Type": "application/json"
-        },
+          headers:{
+            "Content-Type":
+              "application/json"
+          },
 
-        body: JSON.stringify({
-          message: message,
-          userId: "default-user"
-        })
-      }
-    );
+          body:JSON.stringify({
+            message:message,
+            userId:"default-user"
+          })
+        }
+      );
 
 
-    if (!response.ok) {
+    if(!response.ok)
       throw new Error("Backend error");
-    }
 
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     const answer =
       data.reply ||
-      data.message ||
-      "Sorry boss, mujhe answer nahi mila.";
+      "Sorry boss, answer nahi mila.";
 
 
-    document.getElementById("reply").textContent = answer;
+    document
+      .getElementById("reply")
+      .textContent=answer;
 
 
-    processing = false;
-
-    setOrb(false);
-
+    processing=false;
 
     /*
-      KEEP CONVERSATION MODE ON.
-
-      This is the main fix.
+      Keep conversation alive.
     */
 
-    if (maxRunning) {
+    conversationMode=true;
 
-      conversationMode = true;
+    speak(answer);
 
-      speak(answer);
-
-    }
-
-
-  } catch (error) {
+  }
+  catch(error){
 
     console.error(error);
 
-    processing = false;
-
-    setOrb(false);
+    processing=false;
 
     const errorText =
-      "Boss, backend se connection nahi ho pa raha.";
+      "Boss, backend se connection nahi ho raha.";
 
-    document.getElementById("reply").textContent = errorText;
+    document
+      .getElementById("reply")
+      .textContent=errorText;
 
-    if (maxRunning) {
+    conversationMode=true;
 
-      conversationMode = true;
-
-      speak(errorText);
-
-    }
-
+    speak(errorText);
   }
-
 }
 
 
-/* ---------------- START BUTTON ---------------- */
+/* =========================
+   START / STOP
+========================= */
 
 document
-  .getElementById("startBtn")
-  .addEventListener("click", function() {
+.getElementById("startBtn")
+.addEventListener("click",function(){
 
-    if (maxRunning) {
+  if(maxRunning){
 
-      maxRunning = false;
-      conversationMode = false;
+    maxRunning=false;
+    conversationMode=false;
 
-      clearSilenceTimer();
-      clearTimeout(restartTimer);
+    clearTimeout(restartTimer);
+    clearTimeout(silenceTimer);
 
-      stopRecognition();
+    stopRecognition();
 
-      window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel();
 
-      speaking = false;
-      processing = false;
+    speaking=false;
+    processing=false;
 
-      setOrb(false);
-      setStatus("MAX stopped.");
+    orb(false);
 
-      this.textContent = "START MAX";
+    status("MAX stopped.");
 
-      return;
-    }
+    this.textContent="START MAX";
 
-
-    maxRunning = true;
-    conversationMode = false;
-
-    this.textContent = "STOP MAX";
-
-    setStatus("Say MAX...");
-
-    createRecognition();
-    startListening();
-
-  });
+    return;
+  }
 
 
-/* ---------------- TEXT SEND ---------------- */
+  maxRunning=true;
+  conversationMode=false;
 
-document
-  .getElementById("sendBtn")
-  .addEventListener("click", async function() {
+  this.textContent="STOP MAX";
 
-    const input =
-      document.getElementById("textInput");
+  status("Say MAX...");
 
-    const text = input.value.trim();
+  createRecognition();
+  startListening();
 
-    if (!text) return;
-
-    input.value = "";
-
-    // Typed messages also activate conversation mode.
-    if (maxRunning) {
-      conversationMode = true;
-    }
-
-    await sendToBackend(text);
-
-  });
+});
 
 
-/* Enter key */
+/* =========================
+   TEXT INPUT
+========================= */
 
 document
-  .getElementById("textInput")
-  .addEventListener("keydown", function(event) {
+.getElementById("sendBtn")
+.addEventListener("click",function(){
 
-    if (event.key === "Enter") {
+  const input=
+    document.getElementById("textInput");
 
-      document
-        .getElementById("sendBtn")
-        .click();
+  const text=input.value.trim();
 
-    }
+  if(!text) return;
 
-  });
+  input.value="";
+
+  if(maxRunning)
+    conversationMode=true;
+
+  askMAX(text);
+});
 
 
-/* ---------------- VOICE LOAD ---------------- */
+document
+.getElementById("textInput")
+.addEventListener("keydown",function(e){
 
-window.speechSynthesis.onvoiceschanged = function() {
+  if(e.key==="Enter")
+    document
+      .getElementById("sendBtn")
+      .click();
+
+});
+
+
+window.speechSynthesis.onvoiceschanged=
+function(){
   window.speechSynthesis.getVoices();
 };
 
