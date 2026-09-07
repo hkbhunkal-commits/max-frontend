@@ -7,6 +7,7 @@
 
 <style>
 *{box-sizing:border-box}
+
 body{
   margin:0;
   min-height:100vh;
@@ -17,21 +18,25 @@ body{
   justify-content:center;
   align-items:center;
 }
+
 .app{
   width:100%;
   max-width:500px;
   padding:25px;
   text-align:center;
 }
+
 h1{
   font-size:55px;
   margin:10px 0;
   letter-spacing:5px;
 }
+
 .status{
   color:#aaa;
   min-height:24px;
 }
+
 .orb{
   width:170px;
   height:170px;
@@ -41,10 +46,12 @@ h1{
   box-shadow:0 0 40px #222;
   transition:.2s;
 }
+
 .orb.active{
   box-shadow:0 0 65px #888;
   transform:scale(1.05);
 }
+
 button{
   border:0;
   border-radius:30px;
@@ -53,6 +60,7 @@ button{
   margin:8px;
   cursor:pointer;
 }
+
 input{
   width:90%;
   padding:14px;
@@ -63,6 +71,7 @@ input{
   font-size:16px;
   outline:none;
 }
+
 .reply{
   margin-top:25px;
   min-height:50px;
@@ -116,13 +125,20 @@ let processing = false;
 let restartTimer = null;
 let silenceTimer = null;
 
+/* BARGE-IN */
+let bargeRecognition = null;
+let bargeListening = false;
+let currentSpeechText = "";
+
 
 /* =========================
    UI
 ========================= */
 
 function status(text){
-  document.getElementById("status").textContent = text;
+  document
+    .getElementById("status")
+    .textContent = text;
 }
 
 function orb(on){
@@ -142,7 +158,7 @@ function cleanSpeech(text){
 
   let t = text;
 
-  t = t.replace(/[*_#`~]/g,"");
+  t = t.replace(/[*_#`~]/g," ");
 
   t = t.replace(/[()[\]{}]/g," ");
 
@@ -157,7 +173,7 @@ function cleanSpeech(text){
 
 
 /* =========================
-   STOP RECOGNITION
+   STOP NORMAL RECOGNITION
 ========================= */
 
 function stopRecognition(){
@@ -173,36 +189,261 @@ function stopRecognition(){
 
 
 /* =========================
+   STOP BARGE LISTENER
+========================= */
+
+function stopBargeRecognition(){
+
+  if(!bargeRecognition) return;
+
+  try{
+    bargeRecognition.abort();
+  }catch(e){}
+
+  bargeListening=false;
+}
+
+
+/* =========================
+   STOP MAX SPEAKING
+========================= */
+
+function stopMAXSpeech(){
+
+  try{
+    window.speechSynthesis.cancel();
+  }catch(e){}
+
+  speaking=false;
+  currentSpeechText="";
+
+  stopBargeRecognition();
+
+  orb(false);
+}
+
+
+/* =========================
+   BARGE-IN RECOGNITION
+========================= */
+
+function createBargeRecognition(){
+
+  const SR =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+  if(!SR) return null;
+
+  const r = new SR();
+
+  r.continuous=false;
+  r.interimResults=false;
+  r.lang="en-IN";
+
+
+  r.onstart=function(){
+
+    bargeListening=true;
+
+  };
+
+
+  r.onresult=async function(event){
+
+    bargeListening=false;
+
+    const text =
+      event.results[
+        event.results.length-1
+      ][0].transcript.trim();
+
+
+    if(
+      !text ||
+      !maxRunning ||
+      !speaking
+    ){
+
+      return;
+
+    }
+
+
+    /*
+      Ignore MAX's own voice if
+      recognition catches a large
+      part of the sentence.
+    */
+
+    const spoken =
+      currentSpeechText
+        .toLowerCase()
+        .replace(/[^\w\s]/g,"")
+        .trim();
+
+
+    const heard =
+      text
+        .toLowerCase()
+        .replace(/[^\w\s]/g,"")
+        .trim();
+
+
+    if(
+      spoken &&
+      (
+        spoken === heard ||
+        spoken.includes(heard) ||
+        heard.includes(spoken)
+      )
+    ){
+
+      if(speaking)
+        startBargeRecognition();
+
+      return;
+
+    }
+
+
+    /*
+      USER INTERRUPTED MAX
+    */
+
+    stopMAXSpeech();
+
+    conversationMode=true;
+
+    await askMAX(text);
+
+  };
+
+
+  r.onerror=function(){
+
+    bargeListening=false;
+
+    if(
+      maxRunning &&
+      speaking
+    ){
+
+      startBargeRecognition();
+
+    }
+
+  };
+
+
+  r.onend=function(){
+
+    bargeListening=false;
+
+    if(
+      maxRunning &&
+      speaking
+    ){
+
+      startBargeRecognition();
+
+    }
+
+  };
+
+
+  return r;
+}
+
+
+/* =========================
+   START BARGE LISTENING
+========================= */
+
+function startBargeRecognition(){
+
+  if(!maxRunning)
+    return;
+
+  if(!speaking)
+    return;
+
+  if(bargeListening)
+    return;
+
+
+  if(!bargeRecognition){
+
+    bargeRecognition =
+      createBargeRecognition();
+
+  }
+
+
+  if(!bargeRecognition)
+    return;
+
+
+  try{
+
+    bargeRecognition.start();
+
+  }catch(e){}
+
+}
+
+
+/* =========================
    SPEAK
 ========================= */
 
 function speak(text){
 
-  if(!maxRunning) return;
+  if(!maxRunning)
+    return;
 
-  const clean = cleanSpeech(text);
+
+  const clean =
+    cleanSpeech(text);
+
 
   if(!clean){
 
     speaking=false;
+    currentSpeechText="";
 
-    if(maxRunning && conversationMode)
+    if(
+      maxRunning &&
+      conversationMode
+    ){
+
       startListening();
 
+    }
+
     return;
+
   }
 
+
   stopRecognition();
+  stopBargeRecognition();
 
   clearTimeout(restartTimer);
   clearTimeout(silenceTimer);
 
+
   speaking=true;
+  currentSpeechText=clean;
+
 
   orb(true);
+
   status("MAX बोल रहा है...");
 
+
   window.speechSynthesis.cancel();
+
 
   const u =
     new SpeechSynthesisUtterance(clean);
@@ -213,9 +454,13 @@ function speak(text){
 
 
   if(hindi.test(clean)){
+
     u.lang="hi-IN";
+
   }else{
+
     u.lang="en-IN";
+
   }
 
 
@@ -226,21 +471,32 @@ function speak(text){
   const voices =
     window.speechSynthesis.getVoices();
 
+
   let voice=null;
 
 
   if(u.lang==="hi-IN"){
 
     voice =
-      voices.find(v=>v.lang==="hi-IN") ||
-      voices.find(v=>v.lang.startsWith("hi"));
+      voices.find(
+        v=>v.lang==="hi-IN"
+      ) ||
+      voices.find(
+        v=>v.lang.startsWith("hi")
+      );
 
   }else{
 
     voice =
-      voices.find(v=>v.lang==="en-IN") ||
-      voices.find(v=>v.lang.startsWith("en-IN")) ||
-      voices.find(v=>v.lang.startsWith("en"));
+      voices.find(
+        v=>v.lang==="en-IN"
+      ) ||
+      voices.find(
+        v=>v.lang.startsWith("en-IN")
+      ) ||
+      voices.find(
+        v=>v.lang.startsWith("en")
+      );
 
   }
 
@@ -249,14 +505,43 @@ function speak(text){
     u.voice=voice;
 
 
+  /*
+    Start barge-in listener
+    shortly after MAX starts talking.
+  */
+
+  u.onstart=function(){
+
+    setTimeout(()=>{
+
+      if(
+        maxRunning &&
+        speaking
+      ){
+
+        startBargeRecognition();
+
+      }
+
+    },250);
+
+  };
+
+
   u.onend=function(){
 
     speaking=false;
+    currentSpeechText="";
+
+    stopBargeRecognition();
 
     orb(false);
 
 
-    if(maxRunning && conversationMode){
+    if(
+      maxRunning &&
+      conversationMode
+    ){
 
       status("Listening...");
 
@@ -270,16 +555,27 @@ function speak(text){
   u.onerror=function(){
 
     speaking=false;
+    currentSpeechText="";
+
+    stopBargeRecognition();
 
     orb(false);
 
-    if(maxRunning && conversationMode)
+
+    if(
+      maxRunning &&
+      conversationMode
+    ){
+
       startListening();
+
+    }
 
   };
 
 
   window.speechSynthesis.speak(u);
+
 }
 
 
@@ -296,7 +592,9 @@ function createRecognition(){
 
   if(!SR){
 
-    status("Chrome speech recognition required.");
+    status(
+      "Chrome speech recognition required."
+    );
 
     return;
 
@@ -305,7 +603,9 @@ function createRecognition(){
 
   recognition=new SR();
 
+
   recognition.continuous=false;
+
   recognition.interimResults=false;
 
   recognition.lang="en-IN";
@@ -318,10 +618,15 @@ function createRecognition(){
     orb(true);
 
 
-    if(conversationMode)
+    if(conversationMode){
+
       status("Listening...");
-    else
+
+    }else{
+
       status("Say MAX...");
+
+    }
 
 
     startSilenceTimer();
@@ -351,7 +656,11 @@ function createRecognition(){
     }
 
 
-    console.log("MAX heard:",text);
+    console.log(
+      "MAX heard:",
+      text
+    );
+
 
     await processVoice(text);
 
@@ -394,8 +703,10 @@ function createRecognition(){
     if(!maxRunning)
       return;
 
+
     if(speaking)
       return;
+
 
     if(processing)
       return;
@@ -438,22 +749,28 @@ function startListening(){
   clearTimeout(restartTimer);
 
 
-  restartTimer=setTimeout(()=>{
+  restartTimer =
+    setTimeout(()=>{
 
-    if(!maxRunning ||
-       speaking ||
-       processing ||
-       listening)
-      return;
+      if(
+        !maxRunning ||
+        speaking ||
+        processing ||
+        listening
+      ){
+
+        return;
+
+      }
 
 
-    try{
+      try{
 
-      recognition.start();
+        recognition.start();
 
-    }catch(e){}
+      }catch(e){}
 
-  },350);
+    },350);
 
 }
 
@@ -467,20 +784,28 @@ function startSilenceTimer(){
   clearTimeout(silenceTimer);
 
 
-  silenceTimer=setTimeout(()=>{
+  silenceTimer =
+    setTimeout(()=>{
 
-    if(!maxRunning)
-      return;
-
-    if(speaking || processing)
-      return;
+      if(!maxRunning)
+        return;
 
 
-    conversationMode=false;
+      if(
+        speaking ||
+        processing
+      ){
 
-    status("Say MAX...");
+        return;
 
-  },12000);
+      }
+
+
+      conversationMode=false;
+
+      status("Say MAX...");
+
+    },12000);
 
 }
 
@@ -498,11 +823,13 @@ async function processVoice(text){
 
   if(!conversationMode){
 
-    const lower=text.toLowerCase();
+    const lower =
+      text.toLowerCase();
 
 
     const wake =
-      /\b(?:hey\s+|hello\s+)?max\b/i.test(lower);
+      /\b(?:hey\s+|hello\s+)?max\b/i
+        .test(lower);
 
 
     if(!wake){
@@ -540,7 +867,10 @@ async function askMAX(message){
 
   processing=true;
 
+
   stopRecognition();
+  stopBargeRecognition();
+
 
   clearTimeout(restartTimer);
   clearTimeout(silenceTimer);
@@ -573,11 +903,17 @@ async function askMAX(message){
           })
 
         }
+
       );
 
 
-    if(!response.ok)
-      throw new Error("Backend error");
+    if(!response.ok){
+
+      throw new Error(
+        "Backend error"
+      );
+
+    }
 
 
     const data =
@@ -657,60 +993,74 @@ async function askMAX(message){
 
 document
 .getElementById("startBtn")
-.addEventListener("click",function(){
+.addEventListener(
+  "click",
+  function(){
+
+    if(maxRunning){
+
+      maxRunning=false;
+
+      conversationMode=false;
 
 
-  if(maxRunning){
+      clearTimeout(restartTimer);
 
-    maxRunning=false;
+      clearTimeout(silenceTimer);
+
+
+      stopRecognition();
+
+      stopBargeRecognition();
+
+
+      window.speechSynthesis.cancel();
+
+
+      speaking=false;
+
+      processing=false;
+
+      currentSpeechText="";
+
+
+      orb(false);
+
+
+      status(
+        "MAX stopped."
+      );
+
+
+      this.textContent =
+        "START MAX";
+
+
+      return;
+
+    }
+
+
+    maxRunning=true;
 
     conversationMode=false;
 
 
-    clearTimeout(restartTimer);
-    clearTimeout(silenceTimer);
+    this.textContent =
+      "STOP MAX";
 
 
-    stopRecognition();
+    status(
+      "Say MAX..."
+    );
 
 
-    window.speechSynthesis.cancel();
+    createRecognition();
 
-
-    speaking=false;
-
-    processing=false;
-
-
-    orb(false);
-
-    status("MAX stopped.");
-
-
-    this.textContent="START MAX";
-
-
-    return;
+    startListening();
 
   }
-
-
-  maxRunning=true;
-
-  conversationMode=false;
-
-
-  this.textContent="STOP MAX";
-
-
-  status("Say MAX...");
-
-
-  createRecognition();
-
-  startListening();
-
-});
+);
 
 
 /* =========================
@@ -719,30 +1069,34 @@ document
 
 document
 .getElementById("sendBtn")
-.addEventListener("click",function(){
+.addEventListener(
+  "click",
+  function(){
+
+    const input =
+      document.getElementById(
+        "textInput"
+      );
 
 
-  const input =
-    document.getElementById("textInput");
+    const text =
+      input.value.trim();
 
 
-  const text =
-    input.value.trim();
+    if(!text)
+      return;
 
 
-  if(!text)
-    return;
+    input.value="";
 
 
-  input.value="";
+    conversationMode=true;
 
 
-  conversationMode=true;
+    askMAX(text);
 
-
-  askMAX(text);
-
-});
+  }
+);
 
 
 /* =========================
@@ -751,17 +1105,20 @@ document
 
 document
 .getElementById("textInput")
-.addEventListener("keydown",function(e){
+.addEventListener(
+  "keydown",
+  function(e){
 
-  if(e.key==="Enter"){
+    if(e.key==="Enter"){
 
-    document
-      .getElementById("sendBtn")
-      .click();
+      document
+        .getElementById("sendBtn")
+        .click();
+
+    }
 
   }
-
-});
+);
 
 
 window.speechSynthesis.onvoiceschanged =
